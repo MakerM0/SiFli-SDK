@@ -726,11 +726,18 @@ wsock_controlmsg(wsock_state_t *pws, struct pbuf *pb)
         // Copy the ping payload into our pong payload buffer.  It must
         // be masked and sent to the server in the response.
         if (paylen > WSPONG_MAX_PAYLOAD)
+        {
             pws->ponglen = 0;   // We can't support a large pong payload.
+            printf("Received PING payload too large: %u bytes\n", paylen);
+        }
         else
+        {
             pws->ponglen = paylen;
+            memcpy(&(pws->pong_payload[0]), paybuf, paylen);
+        }
+            
 
-        memcpy(&(pws->pong_payload[0]), paybuf, paylen);
+
 
         return 1;
     }
