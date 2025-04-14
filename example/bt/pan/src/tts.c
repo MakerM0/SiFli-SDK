@@ -62,7 +62,9 @@
 
 #define TTS_HOST            "ai-gateway.vei.volces.com"
 #define TTS_WSPATH          "/v1/realtime?model=doubao-tts"
-#define TTS_TOKEN           "sk-e1f22420d64b4fd4b527341b0cdfe9eb8ljhdhcyvrhnnk97"
+
+// Please use your own tts token, applied in https://console.volcengine.com/vei/aigateway/tokens-list 
+#define TTS_TOKEN           "sk-e1fxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
 
 /**
