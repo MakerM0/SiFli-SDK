@@ -58,7 +58,7 @@
 #include "audio_server.h"
 
 #define MAX_WSOCK_HDR_LEN 512
-#define MAX_AUDIO_DATA_LEN 512
+#define MAX_AUDIO_DATA_LEN 4096
 
 #define TTS_HOST            "ai-gateway.vei.volces.com"
 #define TTS_WSPATH          "/v1/realtime?model=doubao-tts"
@@ -202,8 +202,10 @@ void parse_response(const u8_t *data, u16_t len)
         char *delta = my_json_string(root, "delta");
         static uint8_t audio_data[MAX_AUDIO_DATA_LEN];
         int size=0;
-        if (ERR_OK==mbedtls_base64_decode(audio_data,MAX_AUDIO_DATA_LEN,&size,delta,strlen(delta)))
+        if (ERR_OK==mbedtls_base64_decode(audio_data,MAX_AUDIO_DATA_LEN,&size,delta,strlen(delta))) {
+            rt_kprintf("Audio data:%d\r\n",size);
             xz_audio_downlink(audio_data, size, NULL, 0);
+        }
     }
     else
     {

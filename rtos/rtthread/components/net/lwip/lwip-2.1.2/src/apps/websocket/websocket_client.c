@@ -881,6 +881,7 @@ wsock_tcp_recv(void *arg, struct altcp_pcb *pcb, struct pbuf *pb, err_t err)
         RT_ASSERT(pws->offset+pb->tot_len< WSMSG_MAXSIZE);
         memcpy(pws->cache+pws->offset, pktbuf, pb->tot_len);
         pws->offset+=pb->tot_len;
+        pws->cache[pws->offset]='\0';
 next:
         pws->paylen = wsock_pkt_len(pws->cache);
         if (pws->offset>=pws->paylen) {
@@ -895,8 +896,9 @@ next:
             int delta=pws->offset-pws->paylen;
             pws->offset=0;
             if (delta) {
-                memcpy(pws->cache, &(pws->cache[pws->paylen]), delta);                    
+                memcpy(pws->cache, &(pws->cache[pws->paylen]), delta);                 
                 pws->offset=delta;    
+                pws->cache[pws->offset]='\0';
                 goto next;
             }
         }
