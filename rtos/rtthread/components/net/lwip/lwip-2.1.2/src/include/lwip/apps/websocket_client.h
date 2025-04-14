@@ -45,7 +45,7 @@ extern "C" {
 
 #define WSLEN_SMALL         125     // 125 bytes => 7 bits (not 8), less 1
 #define WSLEN_BIG           32768   // 32K bytes => 16 bits
-#define WSMSG_MAXSIZE       1420    // ~ single packet size after headers
+#define WSMSG_MAXSIZE       4096    // ~ single packet size after headers
 // ip:20/tcp:32/ws:14 --> total:68
 
 #define WSHDRLEN_MIN        2
@@ -114,6 +114,13 @@ typedef struct _wsock_state
     wsock_parse_state_t parse_state;
     char                server_rsp[WSOCK_KEY_SIZE];
     char                client_key[WSOCK_KEY_SIZE];
+
+
+    u8_t                cache[WSMSG_MAXSIZE];
+    uint16_t            offset;
+    uint16_t            paylen;
+    uint8_t             opcode;
+    uint8_t             minlen;
 
     // web socket control parameters
     int                 tcp_polls;

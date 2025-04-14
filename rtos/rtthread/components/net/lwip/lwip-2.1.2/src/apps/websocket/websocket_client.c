@@ -112,7 +112,7 @@ static err_t wsock_tcp_recv(void *arg, struct altcp_pcb *pcb, struct pbuf *p, er
 static void wsock_tcp_err(void *arg, err_t err);
 static err_t wsock_tcp_poll(void *arg, struct altcp_pcb *pcb);
 static err_t wsock_tcp_sent(void *arg, struct altcp_pcb *pcb, u16_t len);
-static void wsock_invoke_app(wsock_state_t *pws, struct pbuf *pb);
+static void wsock_invoke_app(wsock_state_t *pws, char    *pktbuf);
 static err_t wsock_connect_dns(wsock_state_t *pws, const char *srvname);
 static void wsock_hexdump(unsigned char *buf, size_t len);
 
@@ -202,7 +202,7 @@ const char *reqfmts  = "GET %s HTTP/1.1\r\n"            /* path                 
                        "Host: %s\r\n"                   /* destination host             */ \
                        "Upgrade: websocket\r\n"         /* protocol upgrade headers     */ \
                        "Connection: Upgrade\r\n";       /* protocol upgrade headers     */
-const char *authfmt  = "Authorization: bearer %s\r\n";  /* bearer token for auth        */
+const char *authfmt  = "Authorization: Bearer %s\r\n";  /* bearer token for auth        */
 const char *extrafmt = "%s: %s\r\n";                    /* some other user header       */
 const char *origfmt  = "Origin: bearer %s\r\n";         /* CSRF protection              */
 const char *keyfmt   = "Sec-WebSocket-Key: %s\r\n";     /* calculated ws key            */
@@ -689,7 +689,7 @@ wsock_wait_headers(struct pbuf *p, u32_t *content_length, u16_t *total_header_le
  *  @param  pb  received buffer (websocket data)
  */
 static int
-wsock_controlmsg(wsock_state_t *pws, struct pbuf *pb)
+wsock_controlmsg(wsock_state_t *pws, char    *pktbuf)
 {
     if (wsverbose) FNTRACE();
 
@@ -698,7 +698,6 @@ wsock_controlmsg(wsock_state_t *pws, struct pbuf *pb)
     LWIP_ASSERT("pws->state0 == alloc'd", (pws->state0 == PWS_STATE_INITD));
     LWIP_ASSERT("pws->state1 == alloc'd", (pws->state1 == PWS_STATE_INITD));
 
-    char    *pktbuf = (char *)(pb->payload);
     uint8_t opcode  = pktbuf[0] & WSHDRBITS_OPCODE;
     uint8_t paylen  = pktbuf[1] & WSHDRBITS_PAYLOAD_LEN;
 
@@ -752,6 +751,18 @@ wsock_controlmsg(wsock_state_t *pws, struct pbuf *pb)
     }
 
     return 0;
+}
+
+static int wsock_pkt_len(char *pkt)
+{
+    int len  = (u16_t)(pkt[1] & WSHDRBITS_PAYLOAD_LEN);    
+    if (len == WSHDRBITS_PAYLOAD_LEN_EXT16) {
+        len = ntohs(*((uint16_t *) &pkt[2]));
+        len +=4;
+    }
+    else
+        len +=2;
+    return len;
 }
 
 /**
@@ -860,19 +871,35 @@ wsock_tcp_recv(void *arg, struct altcp_pcb *pcb, struct pbuf *pb, err_t err)
     // Handle received data.
     if (pws->parse_state == WSOCK_PARSE_RX_DATA && (pb->tot_len > 0))
     {
-        pws->rx_data_bytes += pb->tot_len;
+        u8_t * pktbuf=pb->payload;
+        int delta=0;
 
+        pws->rx_data_bytes += pb->tot_len;
         // received valid data; reset the timeout
         pws->timeout_ticks = WSOCK_POLL_TIMEOUT;
-        if (!wsock_controlmsg(pws, pb))
-        {
-            // Hand off the message to the application layer.
-            if (pws->message_handler)
-                wsock_invoke_app(pws, pb);
-            else
-                printf("NO MESSAGE HANDLER FOR RECEIVED MESSAGE!!\n");
-        }
 
+        RT_ASSERT(pws->offset+pb->tot_len< WSMSG_MAXSIZE);
+        memcpy(pws->cache+pws->offset, pktbuf, pb->tot_len);
+        pws->offset+=pb->tot_len;
+next:
+        pws->paylen = wsock_pkt_len(pws->cache);
+        if (pws->offset>=pws->paylen) {
+            if (!wsock_controlmsg(pws, pws->cache))
+            {
+                // Hand off the message to the application layer.
+                if (pws->message_handler)
+                    wsock_invoke_app(pws, (char*)pws->cache);
+                else
+                    printf("NO MESSAGE HANDLER FOR RECEIVED MESSAGE!!\n");
+            }
+            int delta=pws->offset-pws->paylen;
+            pws->offset=0;
+            if (delta) {
+                memcpy(pws->cache, &(pws->cache[pws->paylen]), delta);                    
+                pws->offset=delta;    
+                goto next;
+            }
+        }
         if (wsverbose)
             printf("freeing rcvd pbuf in wsock_tcp_recv()\n");
 
@@ -891,7 +918,7 @@ wsock_tcp_recv(void *arg, struct altcp_pcb *pcb, struct pbuf *pb, err_t err)
  *  @param  pb  received buffer (websocket data)
  */
 static void
-wsock_invoke_app(wsock_state_t *pws, struct pbuf *pb)
+wsock_invoke_app(wsock_state_t *pws, char    *pktbuf)
 {
     if (wsverbose) FNTRACE();
 
@@ -900,7 +927,6 @@ wsock_invoke_app(wsock_state_t *pws, struct pbuf *pb)
     LWIP_ASSERT("pws->state0 == alloc'd", (pws->state0 == PWS_STATE_INITD));
     LWIP_ASSERT("pws->state1 == alloc'd", (pws->state1 == PWS_STATE_INITD));
 
-    char    *pktbuf = (char *)(pb->payload);
     char    *paybuf = pktbuf + WSHDRLEN_MIN;
     uint8_t opcode  = pktbuf[0] & WSHDRBITS_OPCODE;
     uint8_t minlen  = pktbuf[1] & WSHDRBITS_PAYLOAD_LEN;
@@ -923,49 +949,16 @@ next_opcode:
         paylen = ntohs(*((uint16_t *) &pktbuf[2]));
     }
 
-    // Don't support fragmentation and large messages yet.
-    if ((minlen == WSHDRBITS_PAYLOAD_LEN_EXT64) || (paylen > WSMSG_MAXSIZE))
-    {
-        printf("oversize websocket messages not supported\n");
-        return;
-    }
-
-    // tot_len is length of the received data
-    if (paylen > pb->tot_len)
-    {
-        printf("got invalid size: %d bytes\n", paylen);
-        return;
-    }
-
-    if (!(pb->tot_len > 0))
-    {
-        printf("got invalid pbuf size: %d bytes\n", pb->tot_len);
-        return;
-    }
-
     if (wsverbose)
     {
         printf("rcvd WS msg type: %s len %u\n", opcode2str(opcode), paylen);
-        wsock_hexdump(pb->payload, pb->tot_len);
+        wsock_hexdump(pktbuf, paylen);
     }
 
     if (pws->message_handler)
     {
         pws->message_handler((opcode == OPCODE_TEXT) ? WS_TEXT : WS_DATA, paybuf, paylen);
-    }
-
-    pktbuf = paybuf + paylen;
-    // Check if there is more data in the buffer.  If so, we need to
-    if((uint32_t)pktbuf - (uint32_t)(pb->payload) + 2 < pb->tot_len)
-    {
-        paybuf = pktbuf + WSHDRLEN_MIN;
-        opcode  = pktbuf[0] & WSHDRBITS_OPCODE;
-        minlen  = pktbuf[1] & WSHDRBITS_PAYLOAD_LEN;
-        paylen  = minlen;
-        goto next_opcode;
-    }
-
-
+    }    
 }
 
 
