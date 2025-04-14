@@ -341,6 +341,8 @@ static void print_gpu_error_info(void);
 int drv_epic_init(void);
 #ifdef DRV_EPIC_NEW_API
     static rt_err_t drv_epic_render_list_init(void);
+#else
+	static void cont_blend_reset(void);
 #endif /* DRV_EPIC_NEW_API */
 
 
@@ -783,6 +785,10 @@ static void gpu_unlock(void)
 static rt_err_t wait_gpu_done(rt_int32_t time)
 {
     rt_err_t err;
+
+#ifndef DRV_EPIC_NEW_API
+    cont_blend_reset();
+#endif /*!DRV_EPIC_NEW_API*/
     do
     {
         err = drv_gpu_take(time);
@@ -1568,7 +1574,6 @@ rt_err_t drv_epic_copy(const uint8_t *src, uint8_t *dst,
     //Clip dst layer to copy area
     clip_layer_to_area(p_dst_layer, dst, dst_area->x0, dst_area->y0, copy_area);
 
-    cont_blend_reset();
     gpu_lock(DRV_EPIC_IMG_COPY, p_src_layer, NULL, p_dst_layer);
     drv_epic.cbk = cbk;
 
@@ -1613,7 +1618,6 @@ rt_err_t drv_epic_fill_ext(EPIC_LayerConfigTypeDef *input_layers,
     err = wait_gpu_done(GPU_BLEND_EXP_MS);
     if (RT_EOK != err) return err;
 
-    cont_blend_reset();
     gpu_lock(DRV_EPIC_COLOR_FILL,
              (3 == input_layer_cnt) ? input_layers + 2 : NULL,
              NULL, output_canvas);
@@ -1765,7 +1769,6 @@ rt_err_t drv_epic_fill_grad(EPIC_GradCfgTypeDef *param,
     err = wait_gpu_done(GPU_BLEND_EXP_MS);
     if (RT_EOK != err) return err;
 
-    cont_blend_reset();
     gpu_lock(DRV_EPIC_FILL_GRAD, NULL, NULL, param);
     drv_epic.cbk = cbk;
 
@@ -1832,7 +1835,6 @@ rt_err_t drv_epic_blend(EPIC_LayerConfigTypeDef *input_layers,
     err = wait_gpu_done(GPU_BLEND_EXP_MS);
     if (RT_EOK != err) return err;
 
-    cont_blend_reset();
     gpu_lock(DRV_EPIC_IMG_ROT, input_layers, &input_layer_cnt, output_canvas);
     drv_epic.cbk = cbk;
 
@@ -1894,7 +1896,6 @@ rt_err_t drv_epic_transform(EPIC_LayerConfigTypeDef *input_layers,
     err = wait_gpu_done(GPU_BLEND_EXP_MS);
     if (RT_EOK != err) return err;
 
-    cont_blend_reset();
     gpu_lock(DRV_EPIC_TRANSFORM, input_layers, &input_layer_cnt, output_canvas);
     drv_epic.cbk = cbk;
 
