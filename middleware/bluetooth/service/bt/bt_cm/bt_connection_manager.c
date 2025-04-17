@@ -447,8 +447,7 @@ static bt_cm_err_t bt_cm_profile_connect(uint32_t profile_bit, bt_cm_conned_dev_
                 if (profile_bit == BT_CM_PAN)
                 {
 #ifdef BT_FINSH_PAN
-                    extern int bt_pan_conn_by_addr(BTS2S_BD_ADDR * remote_addr);
-                    err = bt_pan_conn_by_addr(&(conn->info.bd_addr));
+                    err = bt_pan_conn(&(conn->info.bd_addr));
 #endif
                 }
                 else
@@ -1306,9 +1305,13 @@ int bt_cm_gap_event_handler(uint16_t event_id, uint8_t *msg)
         // bt_cm_conned_dev_t *conn = bt_cm_find_conn_by_addr(env, &ind->bd);
 
         LOG_I("BTS2MU_GAP_ENCRYPTION_IND");
+
+        //conn->rmt_smc = 1;
+
         uint8_t addr[6];
         bt_addr_convert(&ind->bd, addr);
         bt_interface_bt_event_notify(BT_NOTIFY_COMMON, BT_NOTIFY_COMMON_ENCRYPTION, addr, 6);
+
         break;
     }
     default:
@@ -1422,15 +1425,15 @@ int bt_cm_hci_event_handler(uint16_t event_id, uint8_t *msg)
                 hcia_wr_lp_settings_keep_sniff_interval(&ind->bd, HCI_LINK_POLICY_NO_CHANGE, BT_CM_SNIFF_ENTER_TIME, BT_CM_SNIFF_INV, BT_CM_SNIFF_INV, BT_CM_SNIFF_ATTEMPT, BT_CM_SNIFF_TIMEOUT, NULL);
 
                 bt_cm_add_bonded_dev(&conn->info, 1);
-#ifdef BT_AUTO_CONNECT_LAST_DEVICE
-                // if (ind->incoming)
-                // {
-                //     conn->tim_hdl = rt_timer_create("btcm_con", bt_cm_conn_timeout, conn,
-                //                                     rt_tick_from_millisecond(BT_CM_MAX_TIMEOUT), RT_TIMER_FLAG_ONE_SHOT | RT_TIMER_FLAG_SOFT_TIMER);
+// #ifdef BT_AUTO_CONNECT_LAST_DEVICE
+//                 if (ind->incoming)
+//                 {
+//                     conn->tim_hdl = rt_timer_create("btcm_con", bt_cm_conn_timeout, conn,
+//                                                     rt_tick_from_millisecond(BT_CM_MAX_TIMEOUT), RT_TIMER_FLAG_ONE_SHOT | RT_TIMER_FLAG_SOFT_TIMER);
 
-                //     rt_timer_start(conn->tim_hdl);   //start the timer,when gap receive BTS2MU_GAP_RMT_SMC_IND
-                // }
-#endif
+//                     rt_timer_start(conn->tim_hdl);   //start the timer,when gap receive BTS2MU_GAP_RMT_SMC_IND
+//                 }
+// #endif
             }
         }
         else
@@ -1907,6 +1910,13 @@ void bt_cm(uint8_t argc, char **argv)
         else if (strcmp(argv[1], "release_a2dp") == 0)
         {
             bt_av_release_stream(0);
+        }
+#endif
+#ifdef CFG_SPP_LOOPBACK
+        else if (strcmp(argv[1], "spp_loopback") == 0)
+        {
+            LOG_I("set loopback: %d", atoi(argv[2]));
+            bt_spp_set_spp_data_loopback_enable(atoi(argv[2]));
         }
 #endif
     }
