@@ -135,9 +135,11 @@ wsock_init(wsock_state_t *pws, int ssl_enabled, int ping_enabled, wsapp_fn messa
     int     n;
     char    keybuf[WSOCK_KEY_BUF_SIZE], keyhash[WSOCK_KEY_HASH_SIZE];
 
-    // Initialize the websocket state struct
-    LWIP_ASSERT("pws != NULL", pws != NULL);
-    LWIP_ASSERT("pws.pcb != NULL", pws->pcb == NULL);
+    if (pws == NULL || pws->pcb != NULL)
+    {
+        return ERR_ARG;
+    }
+
     memset(pws, 0, sizeof(wsock_state_t));
 
     pws->ssl_enabled     = ssl_enabled;
@@ -232,10 +234,11 @@ wsock_connect(wsock_state_t *pws,    uint16_t len, const char *srvname, const ch
     err_t   err;
     char *buf;
 
-    LWIP_ASSERT("pws != NULL", pws != NULL);
-    LWIP_ASSERT("pws->pcb != NULL", pws->pcb != NULL);
-    LWIP_ASSERT("pws->state0 == alloc'd", (pws->state0 == PWS_STATE_INITD));
-    LWIP_ASSERT("pws->state1 == alloc'd", (pws->state1 == PWS_STATE_INITD));
+    if (pws==NULL || pws->pcb==NULL || pws->state0!=PWS_STATE_INITD || pws->state1!=PWS_STATE_INITD)
+    {
+        printf("wsock_connect: invalid state\n");
+        return ERR_VAL;
+    }
 
     if ((len < 0) || (len > 0xFFFF))
         return ERR_VAL;
@@ -1019,10 +1022,10 @@ wsock_write(wsock_state_t *pws, const char *buf, u16_t buflen, uint8_t opcode)
 {
     if (wsverbose) FNTRACE();
 
-    LWIP_ASSERT("pws != NULL", pws != NULL);
-    LWIP_ASSERT("pws->pcb != NULL", pws->pcb != NULL);
-    LWIP_ASSERT("pws->state0 == alloc'd", (pws->state0 == PWS_STATE_INITD));
-    LWIP_ASSERT("pws->state1 == alloc'd", (pws->state1 == PWS_STATE_INITD));
+    if (pws==NULL || pws->pcb==NULL || pws->state0!=PWS_STATE_INITD || pws->state1!=PWS_STATE_INITD) {
+        printf("wsock_write() passed invalid wsock_state_t struct\n");
+        return ERR_CONN;
+    }
 
     err_t   err=ERR_OK;
     char    hdr[WSHDRLEN_MAX], *maskkey;
