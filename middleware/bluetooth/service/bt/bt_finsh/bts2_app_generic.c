@@ -662,12 +662,13 @@ void bt_get_rssi(bts2_app_stru *bts2_app_data)
 void bt_wr_link_policy(BTS2S_BD_ADDR *bd, uint16_t link_policy_mode)
 {
 
-    gap_wr_link_policy_req(bts2_task_get_app_task_id(),
-                       *bd,
-                       link_policy_mode,
-                       TRUE,
-                       NULL,
-                       NULL);
+    // gap_wr_link_policy_req(bts2_task_get_app_task_id(),
+    //                    *bd,
+    //                    link_policy_mode,
+    //                    TRUE,
+    //                    NULL,
+    //                    NULL);
+    hcia_wr_lp_settings(bd, link_policy_mode, NULL);
 
 }
 
