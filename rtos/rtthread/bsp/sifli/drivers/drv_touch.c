@@ -632,12 +632,11 @@ static void tp_poweroff_thread_entry(void *parameter)
 
 
 
-
 #ifdef RT_USING_PM
     rt_pm_release(PM_SLEEP_MODE_IDLE);
 #endif  /* RT_USING_PM */
 
-    LOG_I("Power off done.");
+    LOG_I("touch Power off done.");
     touch_api_unlock();
 
 }
@@ -783,7 +782,6 @@ static rt_size_t touch_read(struct rt_device *dev, rt_off_t pos, void *buffer, r
 static rt_err_t control(struct rt_device *dev, int cmd, void *args)
 {
     rt_err_t result = RT_EOK;
-
     if (NULL == current_driver)  return RT_EEMPTY;
 
     switch (cmd)
@@ -801,7 +799,7 @@ static rt_err_t control(struct rt_device *dev, int cmd, void *args)
 //        current_driver->ops->init();
 //#endif /* TSC_USING_TMA525B */
 //        break;
-
+   
     case RTGRAPHIC_CTRL_POWERON:
     {
         /*Temporary thread with large stack for tp init only*/

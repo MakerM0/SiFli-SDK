@@ -178,7 +178,7 @@ static void button_event_handler(int32_t pin, button_action_t action)
         }
         if (GUI_PM_ACTION_INVALID != pm_action)
         {
-            gui_pm_fsm(pm_action); //唤醒
+            gui_pm_fsm(pm_action);
         }
     }
     else
@@ -279,7 +279,7 @@ static void button_event_task_entry(struct _lv_timer_t *task)
     rt_uint32_t evt;
     rt_err_t err;
 
-    if (lv_disp_get_inactive_time(NULL) > IDLE_TIME_LIMIT) //检查屏幕是否在指定时间内（IDLE_TIME_LIMIT）没有活动，没有活动就挂起ui
+    if (lv_disp_get_inactive_time(NULL) > IDLE_TIME_LIMIT)
     {
         gui_pm_fsm(GUI_PM_ACTION_SLEEP);
     }
@@ -447,10 +447,10 @@ void app_watch_entry(void *parameter)
     gpio = GET_GPIO_INSTANCE(SLEEP_CTRL_PIN);
     gpio_pin = GET_GPIOx_PIN(SLEEP_CTRL_PIN);
 
-    wakeup_pin = HAL_HPAON_QueryWakeupPin(gpio, gpio_pin); //查询引脚是否支持唤醒功能
+    wakeup_pin = HAL_HPAON_QueryWakeupPin(gpio, gpio_pin);
     RT_ASSERT(wakeup_pin >= 0);
 
-    pm_enable_pin_wakeup(wakeup_pin, AON_PIN_MODE_DOUBLE_EDGE); //启用唤醒功能 双沿触发
+    pm_enable_pin_wakeup(wakeup_pin, AON_PIN_MODE_DOUBLE_EDGE);
     gui_ctx_init();
     gui_pm_init(lcd_device, pm_event_handler);
 #endif /* BSP_USING_PM */
@@ -494,7 +494,7 @@ void app_watch_entry(void *parameter)
             rt_device_control(lcd_device, RTGRAPHIC_CTRL_GET_BUSY, &lcd_drawing);
             if (!lcd_drawing)
             {
-                LOG_I("no input:%d", lv_disp_get_inactive_time(NULL));
+                LOG_I("no input:%d", lv_disp_get_inactive_time(NULL)); 
                 gui_suspend();
                 LOG_I("ui resume");
                 /* force screen to redraw */
