@@ -56,6 +56,7 @@
 #include <cJSON.h>
 #include "button.h"
 #include "audio_server.h"
+#include "mem_section.h"
 
 #define MAX_WSOCK_HDR_LEN 512
 #define MAX_AUDIO_DATA_LEN 4096
@@ -108,7 +109,13 @@ typedef struct
     uint8_t         encode_out[CHAT_FRAME_ENCODE_LEN]; //base64
 } chat_ws_t;
 
-static chat_ws_t g_thiz;
+#if defined(__CC_ARM) || defined(__CLANG_ARM)
+    L2_RET_BSS_SECT_BEGIN(g_thiz)
+    static  chat_ws_t g_thiz;
+    L2_RET_BSS_SECT_END
+#else
+    static  chat_ws_t g_thiz L2_RET_BSS_SECT(g_thiz);
+#endif
 
 static void parse_response(const u8_t *data, u16_t len);
 
@@ -408,18 +415,20 @@ static const char *session_update =
 "{"
     "\"type\": \"session.update\","
     "\"session\": {"
-        "\"modalities\": [\"audio\"],"
+        "\"modalities\": [\"text\", \"audio\"],"
         "\"voice\":\"zh_female_tianmeixiaoyuan_moon_bigtts\","
         "\"input_audio_format\": \"pcm16\","
         "\"output_audio_format\": \"pcm16\""
     "}"
 "}" ;
-extern int dump_websocket;
+
 static void chat(int argc, char **argv)
 {
 
     err_t err;
     chat_ws_t *thiz = &g_thiz;
+    memset(thiz, 0, sizeof(chat_ws_t));
+
     if (thiz->sem == NULL)
         thiz->sem = rt_sem_create("xz_ws", 0, RT_IPC_FLAG_FIFO);
 
@@ -466,7 +475,6 @@ static void chat(int argc, char **argv)
     else
     {
         rt_kprintf("\n\nPress Key1 and Talk, release Key1 and Listen\n\n");
-        dump_websocket = 1;
         return;
     }
 Exit:

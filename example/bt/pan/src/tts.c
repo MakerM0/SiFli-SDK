@@ -56,6 +56,7 @@
 #include <cJSON.h>
 #include "button.h"
 #include "audio_server.h"
+#include "mem_section.h"
 
 #if PKG_USING_LIBHELIX
     #include "mp3dec.h"
@@ -64,14 +65,14 @@
 #endif
 
 #define MAX_WSOCK_HDR_LEN 512
-#define MAX_AUDIO_DATA_LEN (4096)
+#define MAX_AUDIO_DATA_LEN (4096 * 2)
 
 
 #define TTS_HOST            "ai-gateway.vei.volces.com"
 #define TTS_WSPATH          "/v1/realtime?model=doubao-tts"
 
 // Please use your own tts token, applied in https://console.volcengine.com/vei/aigateway/tokens-list
-#define TTS_TOKEN           "sk-e1f22420d64b4fd4b527341b0cdfe9eb8ljhdhcyvrhnnk97"
+#define TTS_TOKEN           "sk-e1fxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
 #define MP3_MAIN_BUFFER_SIZE    (MAINBUF_SIZE * 4)
 #define TTS_EVENT_DECODE        (1 << 0)
@@ -100,7 +101,14 @@ typedef struct
     uint8_t         is_exit;
 } tts_ws_t;
 
-tts_ws_t g_tts_ws;
+#if defined(__CC_ARM) || defined(__CLANG_ARM)
+    L2_RET_BSS_SECT_BEGIN(g_tts_ws)
+    static tts_ws_t g_tts_ws;
+    L2_RET_BSS_SECT_END
+#else
+    static  tts_ws_t g_tts_ws L2_RET_BSS_SECT(g_tts_ws);
+#endif
+
 static enum DeviceState g_ws_state;
 
 static int audio_callback_func(audio_server_callback_cmt_t cmd, void *callback_userdata, uint32_t reserved)
@@ -399,14 +407,14 @@ static const char *tts_req_fmt =
 static const char input_done[] = "{\"type\": \"input_text.done\"}";
 
 static char tts_request[512];
-//extern int dump_websocket;
+
 void send_tts_request(char * text)
 {
     tts_request[sizeof(tts_request) - 1] = '#';
     rt_snprintf(tts_request, sizeof(tts_request), tts_req_fmt, g_tts_ws.event_id++, text);
     RT_ASSERT(tts_request[sizeof(tts_request) - 1] == '#');
     rt_kprintf("Web socket write tts request %s\r\n", tts_request);
-    //dump_websocket = 1;
+
     wsock_write(&g_tts_ws.clnt, tts_request, strlen(tts_request),OPCODE_TEXT);
     wsock_write(&g_tts_ws.clnt, input_done, strlen(input_done),OPCODE_TEXT);
 }
@@ -415,6 +423,8 @@ void tts(int argc, char **argv)
 {
     tts_ws_t *thiz = &g_tts_ws;
     err_t err;
+
+    memset(thiz, 0, sizeof(tts_ws_t));
 
     if (thiz->sem == NULL)
         thiz->sem = rt_sem_create("xz_ws", 0, RT_IPC_FLAG_FIFO);

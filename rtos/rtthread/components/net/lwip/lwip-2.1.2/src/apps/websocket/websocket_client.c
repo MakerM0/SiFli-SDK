@@ -137,6 +137,7 @@ wsock_init(wsock_state_t *pws, int ssl_enabled, int ping_enabled, wsapp_fn messa
 
     if (pws == NULL || pws->pcb != NULL)
     {
+        printf("websocket init err\n");
         return ERR_ARG;
     }
 
@@ -568,7 +569,7 @@ err_t wsock_close(wsock_state_t *pws, wsock_result_t result, err_t err)
     if (pws->message_handler)
     {
         rt_kprintf("wsocTCP close\n");
-        pws->message_handler(WS_DISCONNECT, (char *)(uint32_t)err, 0);    
+        pws->message_handler(WS_DISCONNECT, (char *)(uint32_t)err, 0);
     }
 
     return close_err;
@@ -737,7 +738,7 @@ wsock_controlmsg(wsock_state_t *pws, char    *pktbuf)
             pws->ponglen = paylen;
             memcpy(&(pws->pong_payload[0]), paybuf, paylen);
         }
-            
+
 
 
 
@@ -758,10 +759,10 @@ wsock_controlmsg(wsock_state_t *pws, char    *pktbuf)
 
 static int wsock_pkt_len(char *pkt)
 {
-    int len  = (u16_t)(pkt[1] & WSHDRBITS_PAYLOAD_LEN);    
+    int len = (u16_t)(pkt[1] & WSHDRBITS_PAYLOAD_LEN);
     if (len == WSHDRBITS_PAYLOAD_LEN_EXT16) {
         len = ntohs(*((uint16_t *) &pkt[2]));
-        len +=4;
+        len += 4;
     }
     else
         len +=2;
@@ -881,13 +882,13 @@ wsock_tcp_recv(void *arg, struct altcp_pcb *pcb, struct pbuf *pb, err_t err)
         // received valid data; reset the timeout
         pws->timeout_ticks = WSOCK_POLL_TIMEOUT;
 
-        RT_ASSERT(pws->offset+pb->tot_len< WSMSG_MAXSIZE);
+        RT_ASSERT(pws->offset+pb->tot_len < WSMSG_MAXSIZE);
         memcpy(pws->cache+pws->offset, pktbuf, pb->tot_len);
-        pws->offset+=pb->tot_len;
-        pws->cache[pws->offset]='\0';
+        pws->offset += pb->tot_len;
+        pws->cache[pws->offset] = '\0';
 next:
         pws->paylen = wsock_pkt_len(pws->cache);
-        if (pws->offset>=pws->paylen) {
+        if (pws->offset >= pws->paylen) {
             if (!wsock_controlmsg(pws, pws->cache))
             {
                 // Hand off the message to the application layer.
@@ -896,13 +897,15 @@ next:
                 else
                     printf("NO MESSAGE HANDLER FOR RECEIVED MESSAGE!!\n");
             }
-            int delta=pws->offset-pws->paylen;
+            int delta = pws->offset-pws->paylen;
             pws->offset=0;
-            if (delta) {
-                memcpy(pws->cache, &(pws->cache[pws->paylen]), delta);                 
-                pws->offset=delta;    
+            if (delta)
+            {
+                memcpy(pws->cache, &(pws->cache[pws->paylen]), delta);
+                pws->offset = delta;
                 pws->cache[pws->offset]='\0';
-                goto next;
+                if (delta >= 4)
+                    goto next;
             }
         }
         if (wsverbose)
@@ -936,10 +939,14 @@ wsock_invoke_app(wsock_state_t *pws, char    *pktbuf)
     uint8_t opcode  = pktbuf[0] & WSHDRBITS_OPCODE;
     uint8_t minlen  = pktbuf[1] & WSHDRBITS_PAYLOAD_LEN;
     size_t  paylen  = minlen;
+    uint8_t is_fin  = pktbuf[0] & WSHDRBITS_FIN;
 
-next_opcode:  
-
-    if (opcode != OPCODE_TEXT && opcode != OPCODE_BINARY)
+    if (opcode == OPCODE_TEXT || opcode == OPCODE_BINARY)
+    {
+        pws->frag_opcode = opcode;
+        pws->frag_offset = 0;
+    }
+    else if (opcode != OPCODE_CONTINUATION)
     {
         printf("got invalid opcode: %d\n", opcode);
         return;
@@ -962,8 +969,30 @@ next_opcode:
 
     if (pws->message_handler)
     {
-        pws->message_handler((opcode == OPCODE_TEXT) ? WS_TEXT : WS_DATA, paybuf, paylen);
-    }    
+        if (!is_fin)
+        {
+            pws->is_frag = 1;
+        }
+        if (pws->is_frag)
+        {
+            RT_ASSERT(pws->frag_offset + paylen < WSMSG_MAXSIZE);
+            memcpy(&pws->fragments[pws->frag_offset], paybuf, paylen);
+            pws->frag_offset += paylen;
+        }
+        if (is_fin)
+        {
+            if (pws->is_frag)
+            {
+                pws->message_handler((pws->frag_opcode == OPCODE_TEXT) ? WS_TEXT : WS_DATA, pws->fragments, pws->frag_offset);
+                pws->frag_offset = 0;
+                pws->is_frag = 0;
+            }
+            else
+            {
+                pws->message_handler((opcode == OPCODE_TEXT) ? WS_TEXT : WS_DATA, paybuf, paylen);
+            }
+        }
+    }
 }
 
 
@@ -1022,7 +1051,11 @@ wsock_write(wsock_state_t *pws, const char *buf, u16_t buflen, uint8_t opcode)
 {
     if (wsverbose) FNTRACE();
 
-    if (pws==NULL || pws->pcb==NULL || pws->state0!=PWS_STATE_INITD || pws->state1!=PWS_STATE_INITD) {
+    if (pws == NULL
+         || pws->pcb == NULL
+         || pws->state0 != PWS_STATE_INITD
+         || pws->state1 != PWS_STATE_INITD)
+    {
         printf("wsock_write() passed invalid wsock_state_t struct\n");
         return ERR_CONN;
     }
