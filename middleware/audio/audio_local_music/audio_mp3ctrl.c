@@ -58,6 +58,10 @@
 #ifdef SOLUTION_WATCH
     #include "app_mem.h"
 #endif
+#if PKG_USING_VBE_DRC
+    #include "vbe_eq_drc_api.h"
+    #define VBE_OUT_BUFFER_SIZE     (sizeof(short) * MAX_NCHAN * MAX_NGRAN * MAX_NSAMP + VBE_ONE_FRAME_SAMPLES * MAX_NCHAN * sizeof(short))
+#endif
 
 #define PUBLIC_API
 
@@ -144,6 +148,10 @@ struct mp3ctrl_t
     mp3_info_t      frameinfo;
     //source
     audio_client_t  client;
+#if PKG_USING_VBE_DRC
+    void            *vbe;
+    int             last_veb_out_bytes;
+#endif
     const char      *filename; //filename or mp3 data
     uint32_t        mp3_data_len;
     uint32_t        tag_len;
@@ -164,6 +172,7 @@ struct mp3ctrl_t
     uint8_t        *stack_addr;
 #endif
 };
+
 
 typedef struct  ID3v1
 {
@@ -223,7 +232,12 @@ static int buf_read(mp3ctrl_handle handle, void *buf, int len)
 #if defined (RING_USING_FLASH_B)
         rt_flash_read((uint32_t)(handle->filename + handle->fd), buf, len);
 #else
+
+#ifdef RT_USING_SDIO
+        rt_sdio_read((uint32_t)(handle->filename + handle->fd), buf, len);
+#else
         rt_nand_read((uint32_t)(handle->filename + handle->fd), buf, len);
+#endif
 #endif
     }
     else
@@ -535,10 +549,20 @@ static void callback_playing_progress(mp3ctrl_handle ctrl)
 #endif
         if (ctrl->last_display_seconds != senconds)
         {
-            ctrl->callback(as_callback_cmd_user, (void *)senconds, (uint32_t)ctrl->userdata);
+            ctrl->callback(as_callback_cmd_user, (void *)ctrl->userdata, (uint32_t)senconds);
             ctrl->last_display_seconds = senconds;
         }
     }
+}
+
+static int vbe_audio_write(audio_client_t client, int16_t *out, int size)
+{
+    int ret = 1; //defaut, make mp3 decode continue
+    if (size > 0)
+    {
+        ret = audio_write(client, (uint8_t *)out, size);
+    }
+    return ret;
 }
 static void mp3ctrl_thread_entry_file(void *parameter)
 {
@@ -554,9 +578,17 @@ static void mp3ctrl_thread_entry_file(void *parameter)
     HMP3Decoder hMP3Decoder = MP3InitDecoder();
     RT_ASSERT(hMP3Decoder);
     short *outBuf = audio_mem_malloc(sizeof(short) * MAX_NCHAN * MAX_NGRAN * MAX_NSAMP);
+#if !TWS_MIX_ENABLE
     short *outBuf2 = audio_mem_malloc(sizeof(short) * MAX_NCHAN * MAX_NGRAN * MAX_NSAMP);
-    RT_ASSERT(outBuf);
     RT_ASSERT(outBuf2);
+#endif
+#if PKG_USING_VBE_DRC
+    short *vbe_out = audio_mem_malloc(VBE_OUT_BUFFER_SIZE);
+    RT_ASSERT(vbe_out);
+#endif
+    RT_ASSERT(outBuf);
+
+
     rt_tick_t start = 0;
     int nFrames = 0;
     rt_uint32_t evt;
@@ -621,6 +653,13 @@ static void mp3ctrl_thread_entry_file(void *parameter)
 #endif
                     audio_close(ctrl->client);
                     ctrl->client = NULL;
+#if PKG_USING_VBE_DRC
+                    if (ctrl->vbe)
+                    {
+                        vbe_drc_close(ctrl->vbe);
+                        ctrl->vbe = NULL;
+                    }
+#endif
                 }
             }
             cache_full_occured = 0;
@@ -705,6 +744,7 @@ static void mp3ctrl_thread_entry_file(void *parameter)
             {
                 LOG_D("mp3 try write again");
                 MP3GetLastFrameInfo(hMP3Decoder, &mp3FrameInfo);
+#if !TWS_MIX_ENABLE
                 if (audio_device_is_a2dp_sink())
                 {
                     uint32_t bytes;
@@ -743,8 +783,13 @@ static void mp3ctrl_thread_entry_file(void *parameter)
                     }
                 }
                 else
+#endif
                 {
+#if PKG_USING_VBE_DRC
+                    ret = vbe_audio_write(ctrl->client, vbe_out, ctrl->last_veb_out_bytes);
+#else
                     ret = audio_write(ctrl->client, (uint8_t *)outBuf, mp3FrameInfo.outputSamps * 2);
+#endif
                 }
 
 look_write_result:
@@ -779,7 +824,7 @@ look_write_result:
                 else
 #endif
                     buf_seek(ctrl, ctrl->tag_len + 0);
-                LOG_I("mp3--loo frame=%d", nFrames);
+                LOG_I("mp3--loop frame=%d", nFrames);
 
                 ctrl->cache_read_ptr = ctrl->cache_ptr;
                 cache_full_occured = 0;
@@ -796,6 +841,7 @@ look_write_result:
             is_paused = 1;
 
             LOG_I("mp3--end frame=%d", nFrames);
+
             nFrames = 0;
             if (ctrl->callback && 0 == is_closing)
                 ctrl->callback(as_callback_cmd_play_to_end, ctrl->userdata, 0);
@@ -835,13 +881,19 @@ look_write_result:
                 {
                     audio_close(ctrl->client);
                     ctrl->client = NULL;
+#if PKG_USING_VBE_DRC
+                    if (ctrl->vbe)
+                    {
+                        vbe_drc_close(ctrl->vbe);
+                        ctrl->vbe = NULL;
+                    }
+#endif
                 }
                 if (ctrl->resample)
                 {
                     sifli_resample_close(ctrl->resample);
                     ctrl->resample = NULL;
                 }
-                LOG_I("resample should open %d", mp3FrameInfo.samprate);
             }
             if (!ctrl->client)
             {
@@ -857,10 +909,18 @@ look_write_result:
                 ctrl->frameinfo.one_channel_sampels = mp3FrameInfo.outputSamps / mp3FrameInfo.nChans;
                 ctrl->client = audio_open(ctrl->type, AUDIO_TX, &pa, mp3_audio_server_callback, (void *)ctrl);
                 RT_ASSERT(ctrl->client);
+#if PKG_USING_VBE_DRC
+                if (!ctrl->vbe)
+                {
+                    ctrl->vbe = vbe_drc_open(44100, mp3FrameInfo.nChans, 16);
+                    RT_ASSERT(ctrl->vbe);
+                }
+#endif
                 LOG_I("mp3 open ctrl=0x%x, client=0x%x, c=%d samrate=%d samples=%d",
                       ctrl, ctrl->client, mp3FrameInfo.nChans, mp3FrameInfo.samprate, mp3FrameInfo.outputSamps);
             }
             LOG_D("nFrames=%d", nFrames);
+#if !TWS_MIX_ENABLE
             if (audio_device_is_a2dp_sink())
             {
                 uint32_t bytes;
@@ -895,8 +955,14 @@ look_write_result:
                 }
             }
             else
+#endif
             {
+#if PKG_USING_VBE_DRC
+                ctrl->last_veb_out_bytes = vbe_drc_process(ctrl->vbe, outBuf, mp3FrameInfo.outputSamps, vbe_out, VBE_OUT_BUFFER_SIZE);
+                ret = vbe_audio_write(ctrl->client, vbe_out, ctrl->last_veb_out_bytes);
+#else
                 ret = audio_write(ctrl->client, (uint8_t *)outBuf, mp3FrameInfo.outputSamps * 2);
+#endif
             }
 
             if (ret == -1)
@@ -921,6 +987,15 @@ look_write_result:
     if (ctrl->client)
         audio_close(ctrl->client);
     ctrl->client = NULL;
+#if PKG_USING_VBE_DRC
+    if (ctrl->vbe)
+    {
+        vbe_drc_close(ctrl->vbe);
+        ctrl->vbe = NULL;
+    }
+    audio_mem_free(vbe_out);
+#endif
+
     LOG_I("mp3 exit..nFrames=%d", nFrames);
     MP3FreeDecoder(hMP3Decoder);
 #if RT_USING_DFS
@@ -930,8 +1005,9 @@ look_write_result:
     audio_mem_free(ctrl->cache_ptr);
     ctrl->cache_ptr = NULL;
     audio_mem_free(outBuf);
+#if !TWS_MIX_ENABLE
     audio_mem_free(outBuf2);
-
+#endif
     mp3_slist_lock(ctrl);
     while (1)
     {
@@ -968,9 +1044,10 @@ static void wave_thread_entry_file(void *parameter)
     mp3ctrl_handle ctrl = (mp3ctrl_handle)parameter;
     short *outBuf = audio_mem_malloc(WAV_FRAME_SIZE);
     RT_ASSERT(outBuf);
+#if !TWS_MIX_ENABLE
     short *outBuf2 = audio_mem_malloc(WAV_FRAME_SIZE * 2);
     RT_ASSERT(outBuf2);
-
+#endif
     int nFrames = 0;
     rt_uint32_t evt;
     LOG_I("wav run...ctrl=0x%x", ctrl);
@@ -1109,6 +1186,7 @@ static void wave_thread_entry_file(void *parameter)
             int ret;
             if (cache_full_occured)
             {
+#if !TWS_MIX_ENABLE
                 if (audio_device_is_a2dp_sink())
                 {
                     uint32_t bytes;
@@ -1147,6 +1225,7 @@ static void wave_thread_entry_file(void *parameter)
                     }
                 }
                 else
+#endif
                 {
                     ret = audio_write(ctrl->client, (uint8_t *)outBuf, last_frame_len);
                 }
@@ -1242,6 +1321,7 @@ check_write_result:
         }
         LOG_D("nFrames=%d", nFrames);
         int ret;
+#if !TWS_MIX_ENABLE
         if (audio_device_is_a2dp_sink())
         {
             uint32_t bytes;
@@ -1275,6 +1355,7 @@ check_write_result:
             }
         }
         else
+#endif
         {
             ret = audio_write(ctrl->client, (uint8_t *)outBuf, len);
         }
@@ -1311,8 +1392,9 @@ check_write_result:
         ctrl->cache_ptr = NULL;
     }
     audio_mem_free(outBuf);
+#if !TWS_MIX_ENABLE
     audio_mem_free(outBuf2);
-
+#endif
     mp3_slist_lock(ctrl);
     while (1)
     {
@@ -1407,7 +1489,14 @@ static mp3ctrl_handle mp3ctrl_open_real(audio_type_t type,
         LOG_E("mp3 parameter error");
         return NULL;
     }
-    LOG_I("mp3 open %s callback=0x%x", filename, (uint32_t)callback);
+    if (len == -1)
+    {
+        LOG_I("mp3 open %s callback=0x%x", filename, (uint32_t)callback);
+    }
+    else
+    {
+        LOG_I("mp3 buf 0x%p callback=0x%x", filename, (uint32_t)callback);
+    }
     mp3ctrl_handle handle = audio_mem_calloc(1, sizeof(struct mp3ctrl_t));
     RT_ASSERT(handle);
     handle->last_display_seconds = -1;
@@ -1438,6 +1527,19 @@ static mp3ctrl_handle mp3ctrl_open_real(audio_type_t type,
         handle->mp3_data_len = file_size;
     }
     handle->tag_len = audio_parse_mp3_id3v2(handle);
+    if (handle->tag_len == -1)
+    {
+        LOG_E("audio parse error tag_len=%d", handle->tag_len);
+#if RT_USING_DFS
+        if (handle->is_file)
+        {
+            if (handle->fd >= 0)
+                close(handle->fd);
+        }
+#endif
+        audio_mem_free(handle);
+        return NULL;
+    }
     if (handle->tag_len >= file_size)
     {
         handle->mp3_data_len = 0;
@@ -1614,12 +1716,12 @@ PUBLIC_API int mp3ctrl_ioctl(mp3ctrl_handle handle, int cmd, uint32_t param)
 {
     if (!handle || handle->magic != MP3_HANDLE_MAGIC)
         return -1;
-    if (cmd == 0)
+    if (cmd == MP3CTRL_IOCTRL_LOOP_TIMES)
     {
         handle->loop_times = param;
         return 0;
     }
-    if (cmd == 1)
+    if (cmd == MP3CTRL_IOCTRL_CHANGE_FILE)
     {
         mp3_ioctl_cmd_param_t *p = (mp3_ioctl_cmd_param_t *)param;
         if (!p)
@@ -1690,7 +1792,7 @@ Error:
         LOG_I("mp3ctrl next ok");
         return 0;
     }
-    if (cmd == 2)
+    if (cmd == MP3CTRL_IOCTRL_THREAD_PRIORITY)
     {
         uint32_t priority = param;
         rt_thread_control(handle->thread, RT_THREAD_CTRL_CHANGE_PRIORITY, &priority);
@@ -2000,6 +2102,7 @@ again:
         {
             LOG_I("open2 %s type=%d", value, type);
             g_handle2 = mp3ctrl_open(type, (void *)value, NULL, NULL);
+            mp3ctrl_ioctl(g_handle2, 0, -1);
             LOG_I("g_handle2=0x%x", g_handle2);
         }
         else

@@ -74,7 +74,7 @@
 
 #define BT_CM_MAX_TIMEOUT (3000)
 #define BT_CM_SNIFF_INV (798)
-#define BT_CM_SNIFF_ATTEMPT (1)
+#define BT_CM_SNIFF_ATTEMPT (4)
 #define BT_CM_SNIFF_TIMEOUT (1)
 // TODO: Some time iPhone insist using 240ms, so change to 62.5ms first
 #define BT_CM_SNIFF_CHG_TH (100)
@@ -390,7 +390,8 @@ static bt_cm_err_t bt_cm_profile_connect(uint32_t profile_bit, bt_cm_conned_dev_
         if (conn->info.role == BT_CM_MASTER)
             err = BT_CM_ERR_UNSUPPORTED;
         else
-            hfp_hf_conn_req(&conn->info.bd_addr, HF_CONN);
+            // hfp_hf_conn_req(&conn->info.bd_addr, HF_CONN);
+            err = bt_hfp_hf_start_connecting(&conn->info.bd_addr);
     }
     else
 #endif
@@ -446,8 +447,7 @@ static bt_cm_err_t bt_cm_profile_connect(uint32_t profile_bit, bt_cm_conned_dev_
                 if (profile_bit == BT_CM_PAN)
                 {
 #ifdef BT_FINSH_PAN
-                    extern void bt_pan_conn_by_addr(BTS2S_BD_ADDR * remote_addr);
-                    bt_pan_conn_by_addr(&(conn->info.bd_addr));
+                    // err = bt_pan_conn(&(conn->info.bd_addr));
 #endif
                 }
                 else
@@ -1425,15 +1425,15 @@ int bt_cm_hci_event_handler(uint16_t event_id, uint8_t *msg)
                 hcia_wr_lp_settings_keep_sniff_interval(&ind->bd, HCI_LINK_POLICY_NO_CHANGE, BT_CM_SNIFF_ENTER_TIME, BT_CM_SNIFF_INV, BT_CM_SNIFF_INV, BT_CM_SNIFF_ATTEMPT, BT_CM_SNIFF_TIMEOUT, NULL);
 
                 bt_cm_add_bonded_dev(&conn->info, 1);
-#ifdef BT_AUTO_CONNECT_LAST_DEVICE
-                if (ind->incoming)
-                {
-                    conn->tim_hdl = rt_timer_create("btcm_con", bt_cm_conn_timeout, conn,
-                                                    rt_tick_from_millisecond(BT_CM_MAX_TIMEOUT), RT_TIMER_FLAG_ONE_SHOT | RT_TIMER_FLAG_SOFT_TIMER);
+// #ifdef BT_AUTO_CONNECT_LAST_DEVICE
+//                 if (ind->incoming)
+//                 {
+//                     conn->tim_hdl = rt_timer_create("btcm_con", bt_cm_conn_timeout, conn,
+//                                                     rt_tick_from_millisecond(BT_CM_MAX_TIMEOUT), RT_TIMER_FLAG_ONE_SHOT | RT_TIMER_FLAG_SOFT_TIMER);
 
-                    rt_timer_start(conn->tim_hdl);   //start the timer,when gap receive BTS2MU_GAP_RMT_SMC_IND
-                }
-#endif
+//                     rt_timer_start(conn->tim_hdl);   //start the timer,when gap receive BTS2MU_GAP_RMT_SMC_IND
+//                 }
+// #endif
             }
         }
         else
@@ -1671,6 +1671,10 @@ bt_cm_err_t bt_cm_connect_req(BTS2S_BD_ADDR *bd_addr, bt_cm_conn_role_t role)
 
             // Avoid scan and page
             gap_wr_scan_enb_req(bts2_task_get_app_task_id(), 0, 0);
+        }
+        else
+        {
+            bt_cm_conn_destory(env, conn);
         }
         err = BT_CM_ERR_NO_ERR;
 

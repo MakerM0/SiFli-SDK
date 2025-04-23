@@ -10,9 +10,7 @@
 
 #include <rthw.h>
 #include <rtthread.h>
-#include "pbuf.h"
-//#include "bts2_app_demo.h"
-//#include "bnep.h"
+#include "lwip/pbuf.h"
 #include "rtdef.h"
 #include "bts2_bt.h"
 #include "bts2_app_pan.h"
@@ -23,36 +21,27 @@
 //#define DBG_LVL DBG_INFO
 #include <rtdbg.h>
 
-
-struct rt_bt_prot_event_des
-{
-    //rt_bt_prot_event_handler handler;
-    struct rt_bt_prot *prot;
-};
-
 static struct rt_bt_prot *bt_prot;
 
-static struct rt_bt_prot_event_des bt_prot_event_tab[RT_BT_PROT_EVT_MAX][MAX_PAN_INSTANCE_NUM];
-
-extern struct rt_bt_pan_instance  bt_pan_instance[MAX_PAN_INSTANCE_NUM];
-
-
-rt_err_t rt_bt_prot_attach_pan_instance(struct rt_bt_pan_instance *panInstance)
+rt_err_t rt_bt_prot_attach_pan_dev(struct rt_bt_lwip_pan_dev *bt_dev)
 {
-    panInstance->prot = bt_prot;
-    panInstance->prot = bt_prot->ops->dev_reg_callback(panInstance->prot, panInstance); /* attach prot */
+    if (bt_prot != NULL && (bt_prot->ops->dev_reg_callback != NULL))
+    {
+        bt_dev->prot = bt_prot->ops->dev_reg_callback(bt_prot, bt_dev); /* attach prot */
+    }
+    //just for one time
     return RT_EOK;
 }
 
-
-rt_err_t rt_bt_prot_detach_pan_instance(struct rt_bt_pan_instance *panInstance)
+rt_err_t rt_bt_prot_detach_pan_dev(struct rt_bt_lwip_pan_dev *bt_dev)
 {
-    panInstance->prot = bt_prot;
-    bt_prot->ops->dev_unreg_callback(panInstance->prot, panInstance); /* deattach prot */
+    if (bt_prot != NULL && (bt_prot->ops->dev_reg_callback != NULL))
+    {
+        bt_prot->ops->dev_unreg_callback(bt_prot, bt_dev); /* detach prot */
+        bt_dev->prot = NULL;
+    }
     return RT_EOK;
 }
-
-
 
 rt_err_t rt_bt_prot_regisetr(struct rt_bt_prot *prot)
 {
@@ -72,31 +61,8 @@ rt_err_t rt_bt_prot_regisetr(struct rt_bt_prot *prot)
     /* save prot */
     bt_prot = prot;
 
-    // rt_kprintf("lwip:rt_bt_prot_regisetr \n");
-
     return RT_EOK;
 }
-
-
-/*rt_err_t rt_bt_prot_event_register(struct rt_bt_prot *prot, rt_bt_prot_event_t event, rt_bt_prot_event_handler handler)
-{
-   int i;
-
-   if ((prot == RT_NULL) || (handler == RT_NULL))
-   {
-       return -RT_EINVAL;
-   }
-
-  if (bt_prot_event_tab[event].handler == RT_NULL)
-   {
-       bt_prot_event_tab[event].handler = handler;
-       bt_prot_event_tab[event].prot = prot;
-       return RT_EOK;
-   }
-
-
-   return -RT_ERROR;
-}*/
 
 rt_err_t rt_bt_prot_event_unregister(struct rt_bt_prot *prot, rt_bt_prot_event_t event)
 {
@@ -107,38 +73,26 @@ rt_err_t rt_bt_prot_event_unregister(struct rt_bt_prot *prot, rt_bt_prot_event_t
         return -RT_EINVAL;
     }
 
-    /*if ((bt_prot_event_tab[event].handler != RT_NULL) &&
-            (bt_prot_event_tab[event].prot == prot))
-    {
-        rt_memset(&bt_prot_event_tab[event], 0, sizeof(struct rt_bt_prot_event_des));
-        return RT_EOK;
-    }*/
-
-
     return -RT_ERROR;
 }
 
-
-
-rt_err_t rt_bt_prot_transfer_instance(struct rt_bt_pan_instance *bt_instance, void *buff, int len)
+rt_err_t rt_bt_prot_send_data(struct rt_bt_lwip_pan_dev *bt_dev, void *buff, int len)
 {
-    if (bt_instance->ops->bt_send != RT_NULL)
+    if (bt_dev->ops->bt_send != RT_NULL)
     {
-        bt_instance->ops->bt_send(bt_instance, buff, len);
+        bt_dev->ops->bt_send(bt_dev, buff, len);//to outside pan
         return RT_EOK;
     }
     return -RT_ERROR;
 }
 
-
-
-rt_err_t rt_bt_instance_transfer_prot(struct rt_bt_pan_instance *bt_instance, void *buff, int len)
+rt_err_t rt_bt_prot_recv_data(struct rt_bt_lwip_pan_dev *bt_dev, void *buff, int len)
 {
-    struct rt_bt_prot *prot = bt_instance->prot;
+    struct rt_bt_prot *prot = bt_dev->prot;
 
     if (prot != RT_NULL)
     {
-        return prot->ops->prot_recv(bt_instance, buff, len);
+        return prot->ops->prot_recv(bt_dev, buff, len);  //to tcp ip
     }
     return -RT_ERROR;
 }

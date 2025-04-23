@@ -176,7 +176,8 @@ bt_err_t bt_sifli_control_common(struct rt_bt_device *bt_handle, int cmd, void *
 
     case BT_CONTROL_EXIT_SNIFF:
     {
-        bt_interface_exit_sniff_mode();
+        // bt_mac_t *mac = (bt_mac_t *)args;
+        // bt_interface_exit_sniff_mode(mac);
     }
     break;
 

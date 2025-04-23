@@ -197,6 +197,10 @@ static int bt_app_interface_event_handle(uint16_t type, uint16_t event_id, uint8
         {
         case BT_NOTIFY_PAN_PROFILE_CONNECTED:
         {
+            if ((g_bt_app_env.pan_connect_timer))
+            {
+                rt_timer_stop(g_bt_app_env.pan_connect_timer);
+            }
             LOG_I("pan connect successed \n");
         }
         break;

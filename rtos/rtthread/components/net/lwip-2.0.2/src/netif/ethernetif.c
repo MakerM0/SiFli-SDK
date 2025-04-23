@@ -450,9 +450,9 @@ static err_t eth_netif_device_init(struct netif *netif)
         netif_set_up(ethif->netif);
 #endif
 
-#if BT_FINSH_PAN
-        ethif->flags |= ETHIF_LINK_PHYUP;
-#endif
+// #if BT_FINSH_PAN
+//         ethif->flags |= ETHIF_LINK_PHYUP;
+// #endif
         if (ethif->flags & ETHIF_LINK_PHYUP)
         {
 

@@ -100,6 +100,8 @@ static int open_codec_context(int *stream_idx,
     AVCodec *dec = NULL;
     AVDictionary *opts = NULL;
 
+    *stream_idx = -1;
+
     ret = av_find_best_stream(fmt_ctx, type, -1, -1, NULL, 0);
     if (ret < 0)
     {
@@ -174,6 +176,11 @@ static void video_decode_thread(void *p)
         do
         {
             int ret;
+            if (!thiz->video_dec_ctx)
+            {
+                break;
+            }
+
             if (!thiz->audio_dec_ctx || !thiz->cfg.audio_enable)
             {
                 if (!media_video_need_decode(&thiz->video_cache))
@@ -205,6 +212,11 @@ static void video_decode_thread(void *p)
     pkt.size = 0;
     do
     {
+        if (!thiz->video_dec_ctx)
+        {
+            break;
+        }
+
         TRACE_MARK_START(TRACEID_VIDEO_DECODE_TOTAL);
         got_frame = 0;
         media_decode_video(thiz,
@@ -267,6 +279,12 @@ static void decode_audio_packet(ffmpeg_handle thiz, AVPacket *orig, AVPacket *cu
             if (thiz->audio_data == NULL)
             {
                 thiz->audio_data_size = (thiz->audio_frame->nb_samples * thiz->audio_frame->channels * sizeof(uint16_t));
+
+                if (thiz->audio_data_size < 1152 * 4)
+                {
+                    thiz->audio_data_size = 1152 * 4;
+                }
+
                 thiz->audio_data = (uint16_t *)thiz->cfg.mem_malloc(thiz->audio_data_size);
                 RT_ASSERT(thiz->audio_data != NULL);
             }
@@ -284,15 +302,26 @@ static void decode_audio_packet(ffmpeg_handle thiz, AVPacket *orig, AVPacket *cu
                 RT_ASSERT(thiz->audio_handle);
             }
 
+            uint32_t new_size = thiz->audio_frame->nb_samples * thiz->audio_frame->channels * sizeof(uint16_t);
+            thiz->audio_data_period = new_size / (thiz->audio_samplerate * thiz->audio_frame->channels * 2 / 1000);
+
+            if (new_size > thiz->audio_data_size)
+            {
+                thiz->cfg.mem_free(thiz->audio_data);
+                thiz->audio_data_size = new_size;
+                thiz->audio_data = (uint16_t *)thiz->cfg.mem_malloc(new_size);
+                RT_ASSERT(thiz->audio_data != NULL);
+            }
+
             TRACE_MARK_START(TRACEID_AUDIO_CONVERT);
-            media_audio_get(thiz->audio_frame,  thiz->audio_data);
+            media_audio_get(thiz->audio_frame,  thiz->audio_data, thiz->audio_data_size);
             TRACE_MARK_STOP(TRACEID_AUDIO_CONVERT);
 
             if (refcount)
                 av_frame_unref(thiz->audio_frame);
 
             TRACE_MARK_START(TRACEID_AUDIO_WRITE);
-            while (0 == audio_write(thiz->audio_handle, (uint8_t *)thiz->audio_data, thiz->audio_data_size))
+            while (0 == audio_write(thiz->audio_handle, (uint8_t *)thiz->audio_data, new_size))
             {
                 uint32_t    evt = 0;
                 uint32_t    wait_ticks = rt_tick_from_millisecond(thiz->audio_data_period);
@@ -538,8 +567,10 @@ static void media_read_thread(void *p)
             thiz->frame_index = 0;
             while (thiz->seeking_state == 1)
             {
-                if (av_read_frame(thiz->fmt_ctx, &pkt) < 0)
+                read_ret = av_read_frame(thiz->fmt_ctx, &pkt);
+                if (read_ret < 0)
                 {
+                    LOG_I("read frame error=%d", read_ret);
                     thiz->seeking_state = 0;
                     break;
                 }
@@ -1830,7 +1861,7 @@ uint8_t *ffmpeg_get_first_ezip_in_nand(const char *nand_address, uint32_t nand_s
     uint8_t *ezip = NULL;
     ezip_media_t ezip_header = {0};
 
-    lv_img_decode_flash_read(nand_address + offset, &ezip_header, sizeof(ezip_header));
+    lv_img_decode_flash_read((uint32_t)nand_address + offset, (uint8_t *)&ezip_header, sizeof(ezip_header));
     offset += sizeof(ezip_header);
 
     if (memcmp(SIFLI_MEDIA_MAGIC, ezip_header.header, 8))
@@ -1851,7 +1882,7 @@ uint8_t *ffmpeg_get_first_ezip_in_nand(const char *nand_address, uint32_t nand_s
         {
             break;
         }
-        lv_img_decode_flash_read(nand_address + offset, &packet, sizeof(packet));
+        lv_img_decode_flash_read((uint32_t)nand_address + offset, (uint8_t *)&packet, sizeof(packet));
         offset += sizeof(packet);
 
         if (packet.is_audio)
@@ -1868,7 +1899,7 @@ uint8_t *ffmpeg_get_first_ezip_in_nand(const char *nand_address, uint32_t nand_s
             RT_ASSERT(ezip);
             if (ezip)
             {
-                lv_img_decode_flash_read(nand_address + offset, ezip, *psize);
+                lv_img_decode_flash_read((uint32_t)nand_address + offset, ezip, *psize);
                 offset += *psize;
                 LOG_I("%s: read ezip success", __func__);
                 break;

@@ -39,6 +39,8 @@ typedef void (*ram_hook_handler)(void);
 
 typedef int (*flash_enable_func)();
 
+flash_read_func g_bl_flash_read;
+
 extern int BSP_Flash_hw1_init();
 extern int BSP_Flash_hw3_init();
 extern int BSP_Flash_hw4_init();
@@ -189,6 +191,30 @@ static int boot_flash_init(boot_flash_t flash)
     return ret;
 }
 
+static int read_nand(uint32_t addr, const int8_t *buf, uint32_t size)
+{
+    return rt_nand_read(addr, (uint8_t *)buf, size);
+}
+
+static int read_nor(uint32_t addr, const int8_t *buf, uint32_t size)
+{
+    memcpy((void *)buf, (uint8_t *)addr, size);
+    return size;
+}
+
+
+static uint32_t init_flash_read()
+{
+    int nand = 0;
+#if (defined(BSP_USING_NOR_FLASH4) || defined(BSP_USING_NOR_FLASH3))
+    nand = 0;
+#elif (defined(BSP_USING_NAND_FLASH4) || defined(BSP_USING_NAND_FLASH3))
+    nand = 1;
+#endif
+
+    g_bl_flash_read = nand ? read_nand : read_nor;
+    return 0;
+}
 
 uint32_t boot_enable_flash(void)
 {
@@ -217,6 +243,8 @@ uint32_t boot_enable_flash(void)
 
         if (boot_flash_init(BOOT_FLASH4) != BOOT_INVALID_ADDR)
             addr = boot_get_flash_start_addr(BOOT_FLASH4);
+
+        init_flash_read();
 #elif defined(BSP_USING_NOR_FLASH3) || defined(BSP_USING_NAND_FLASH3)
         HAL_PIN_Set(PAD_PA46, MPI3_CLK, PIN_NOPULL, 1);
         HAL_PIN_Set(PAD_PA44, MPI3_CS, PIN_NOPULL, 1);
@@ -226,6 +254,8 @@ uint32_t boot_enable_flash(void)
         HAL_PIN_Set(PAD_PA45, MPI3_DIO3, PIN_PULLUP, 1);
         if (boot_flash_init(BOOT_FLASH3) != BOOT_INVALID_ADDR)
             addr = boot_get_flash_start_addr(BOOT_FLASH3);
+
+        init_flash_read();
 #elif defined(BSP_USING_NOR_FLASH1)
         HAL_PIN_Set(PAD_SA11, MPI1_CLK, PIN_NOPULL, 1);
         HAL_PIN_Set(PAD_SA01, MPI1_CS, PIN_NOPULL, 1);
@@ -428,7 +458,35 @@ void boot_images()
     /* init AES_ACC as normal mode */
     __HAL_SYSCFG_CLEAR_SECURITY();
 
+    dfu_install_info info;
+    dfu_install_info info_ext;
+    if (DFU_DOWNLOAD_REGION_START_ADDR != FLASH_UNINIT_32)
+    {
+        g_bl_flash_read(DFU_DOWNLOAD_REGION_START_ADDR, (const int8_t *)&info, sizeof(dfu_install_info));
+    }
+    if (DFU_INFO_REGION_START_ADDR != FLASH_UNINIT_32)
+    {
+        g_bl_flash_read(DFU_INFO_REGION_START_ADDR, (const int8_t *)&info_ext, sizeof(dfu_install_info));
+    }
+    if (info.magic == SEC_CONFIG_MAGIC && info_ext.magic == SEC_CONFIG_MAGIC)
+    {
+        info = info_ext;
+    }
+
     g_sec_config = (struct sec_configuration *)FLASH_BASE_ADDR;
+
+    read_nor(FLASH_BASE_ADDR, (const int8_t *)&sec_config_cache, sizeof(struct sec_configuration));
+
+    if (DFU_DOWNLOAD_REGION_START_ADDR != FLASH_UNINIT_32)
+    {
+        if ((HAL_Get_backup(RTC_BAKCUP_OTA_FORCE_MODE) == DFU_FORCE_MODE_REBOOT_TO_OFFLINE_OTA_MANAGER) ||
+                (info.magic == SEC_CONFIG_MAGIC) && (info.install_state == DFU_OFFLINE_INSTALL))
+        {
+            //HAL_sw_breakpoint();
+            //g_sec_config->running_imgs[CORE_HCPU] = (struct image_header_enc *) & (((struct sec_configuration *)FLASH_BASE_ADDR)->imgs[DFU_FLASH_IMG_IDX(DFU_FLASH_HCPU_EXT2)]);
+            sec_config_cache.running_imgs[CORE_HCPU] = (struct image_header_enc *) & (((struct sec_configuration *)FLASH_TABLE_START_ADDR)->imgs[DFU_FLASH_IMG_IDX(DFU_FLASH_HCPU_EXT2)]);
+        }
+    }
 
     if (g_sec_config->magic == SEC_CONFIG_MAGIC)
     {
@@ -438,10 +496,16 @@ void boot_images()
             dfu_boot_img_in_flash(flash_id);
         }
 
-        if (g_sec_config->imgs[DFU_FLASH_IMG_IDX(DFU_FLASH_HCPU_EXT2)].length != FLASH_UNINIT_32)
+        if (g_sec_config->running_imgs[CORE_HCPU] != (struct image_header_enc *)FLASH_UNINIT_32)
         {
-            dfu_boot_img_in_flash(DFU_FLASH_HCPU_EXT2);
+            int flash_id = ((uint32_t)sec_config_cache.running_imgs[CORE_HCPU] - FLASH_BASE_ADDR - 0x1000) / sizeof(struct image_header_enc) + DFU_FLASH_IMG_LCPU;
+            dfu_boot_img_in_flash(flash_id);
         }
+
+        // if (g_sec_config->imgs[DFU_FLASH_IMG_IDX(DFU_FLASH_HCPU_EXT2)].length != FLASH_UNINIT_32)
+        // {
+        //     dfu_boot_img_in_flash(DFU_FLASH_HCPU_EXT2);
+        // }
 
         boot_image(CORE_HCPU, 0);
     }
@@ -483,6 +547,11 @@ static void boot_flash_power_on(void)
 #ifdef SOC_BF0_HCPU
     // Enable PADA
     HAL_HPAON_ENABLE_PAD();
+
+    HAL_PBR0_FORCE1_ENABLE();
+    HAL_PBR_ConfigMode(0, 1); //set PBR0 output
+    HAL_PBR_WritePin(0, 1); //set PBR0 high
+
 #endif /* SOC_BF0_HCPU */
 
 

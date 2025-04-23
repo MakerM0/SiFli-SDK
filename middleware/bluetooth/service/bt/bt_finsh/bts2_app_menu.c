@@ -1563,7 +1563,7 @@ static void  bt_disply_menu_gen_8_7(void)
  *----------------------------------------------------------------------------*/
 static void bt_hdl_menu_gen_8_7(bts2_app_stru *bts2_app_data)
 {
-    bt_wr_link_policy(bts2_app_data);
+    bt_wr_link_policy(&bts2_app_data->last_conn_bd, 0x0001);
 }
 
 static void  bt_disply_menu_gen_8_8(void)
@@ -1573,7 +1573,7 @@ static void  bt_disply_menu_gen_8_8(void)
 
 static void bt_hdl_menu_gen_8_8(bts2_app_stru *bts2_app_data)
 {
-    bt_etner_sniff_mode(bts2_app_data);
+    bt_etner_sniff_mode(&bts2_app_data->last_conn_bd, 400,5);
 }
 
 static void  bt_disply_menu_gen_8_9(void)
@@ -1583,7 +1583,7 @@ static void  bt_disply_menu_gen_8_9(void)
 
 static void bt_hdl_menu_gen_8_9(bts2_app_stru *bts2_app_data)
 {
-    bt_exit_sniff_mode(bts2_app_data);
+    bt_exit_sniff_mode(&bts2_app_data->last_conn_bd);
 }
 
 
@@ -1861,12 +1861,32 @@ static void bt_hdl_menu_pan(bts2_app_stru *bts2_app_data)
     {
     case '1':
     {
-        bt_pan_conn(&(bts2_app_data->last_conn_bd));
+        BTS2S_BD_ADDR bd;
+        int reuslt = 0;
+        uint32_t mac[6];
+        reuslt = sscanf((const char *)bts2_app_data->input_str + 1, "%02X%02X%02X%02X%02X%02X", \
+                        &mac[0], &mac[1], \
+                        &mac[2], &mac[3], \
+                        &mac[4], &mac[5]);
+        bd.lap = (mac[3] << 16) | (mac[4] << 8) | mac[5];
+        bd.uap = (U8)mac[2];
+        bd.nap = (U16)((mac[0] << 8) | mac[1]);
+        bt_pan_conn(&bd);
         break;
     }
     case '2':
     {
-        bt_pan_disc(&(bts2_app_data->last_conn_bd));
+        BTS2S_BD_ADDR bd;
+        int reuslt = 0;
+        uint32_t mac[6];
+        reuslt = sscanf((const char *)bts2_app_data->input_str + 1, "%02X%02X%02X%02X%02X%02X", \
+                        &mac[0], &mac[1], \
+                        &mac[2], &mac[3], \
+                        &mac[4], &mac[5]);
+        bd.lap = (mac[3] << 16) | (mac[4] << 8) | mac[5];
+        bd.uap = (U8)mac[2];
+        bd.nap = (U16)((mac[0] << 8) | mac[1]);
+        bt_pan_disc(&bd);
         break;
     }
     case '3':
@@ -3909,10 +3929,10 @@ static void bt_hdl_menu_hid(bts2_app_stru *bts2_app_data)
         bt_hid_mouse_test9(bts2_app_data);
         break;
     case 'e':
-        bt_exit_sniff_mode(bts2_app_data);
+        bt_exit_sniff_mode(&bts2_app_data->last_conn_bd);
         break;
     case 'b':
-        bt_etner_sniff_mode(bts2_app_data);
+        bt_etner_sniff_mode(&bts2_app_data->last_conn_bd, 400, 5);
         break;
     default:
         break;

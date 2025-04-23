@@ -178,7 +178,14 @@ void bt_interface_rd_local_bd_addr(void);
  * @brief            exit sniff mode
  *
  **/
-void bt_interface_exit_sniff_mode(void);
+void bt_interface_exit_sniff_mode(unsigned char *mac);
+
+/**
+ * @brief            write link policy setting mode
+ * @param[in] mac    Remote device address
+ * @param[in] link_policy_mode   want to enable link policy mode
+ **/
+void bt_interface_wr_link_policy_setting(unsigned char *mac, uint16_t link_policy_mode);
 
 /**
  * @brief            Read rssi with the specified device
