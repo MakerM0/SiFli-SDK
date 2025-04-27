@@ -142,31 +142,6 @@ int8_t bt_interface_cancel_connect_req(unsigned char *mac);
 int8_t bt_interface_disconnect_req(unsigned char *mac);
 
 /**
- * @brief                   To report IO capabilities of the peer
- *                          device for the Simple pairing process
- * @param[in] mac           Remote device address
- * @param[in] io_capability    IO capability
- *             IO_CAPABILITY_DISPLAY_ONLY         Display Only 
- *             IO_CAPABILITY_DISPLAY_YES_NO,      Display Yes/No
- *             IO_CAPABILITY_KEYBOARD_ONLY,       Keyboard Only 
- *             IO_CAPABILITY_NO_INPUT_NO_OUTPUT,  No Input/Output
- *             IO_CAPABILITY_REJECT_REQ           Use this to reject the IO capability request
- * @param[in] mitm          true, if MITM protection is required.
- * @param[in] bonding       Default: true
- * @return                  int8_t
- **/
-int8_t bt_interface_io_req_res(unsigned char *mac, BTS2E_SC_IO_CAPABILITY io_capability, uint8_t mitm, uint8_t bonding);
-
-/**
- * @brief                   To accepts or rejects the numerical value
- *                          of the Simple pairing process
- * @param[in] mac           Remote device address
- * @param[in] confirm       1, if accepts.
- * @return                  int8_t
- **/
-int8_t bt_interface_user_confirm_res(unsigned char *mac, uint8_t confirm);
-
-/**
  * @brief            Change local name
  * @param[in] len    Name length
  * @param[in] data   Name
@@ -190,14 +165,7 @@ void bt_interface_rd_local_bd_addr(void);
  * @brief            exit sniff mode
  *
  **/
-void bt_interface_exit_sniff_mode(unsigned char *mac);
-
-/**
- * @brief            write link policy setting mode
- * @param[in] mac    Remote device address
- * @param[in] link_policy_mode   want to enable link policy mode
- **/
-void bt_interface_wr_link_policy_setting(unsigned char *mac, uint16_t link_policy_mode);
+void bt_interface_exit_sniff_mode(void);
 
 /**
  * @brief            Read rssi with the specified device
@@ -310,7 +278,7 @@ void bt_interface_unregister_av_snk_sdp(void);
  **/
 void bt_interface_register_av_snk_sdp(void);
 
-#if defined(CFG_AV_SRC) || defined(_SIFLI_DOXYGEN_)
+#ifdef CFG_AV_SRC
 /**
  * @brief            Get current a2dp stream state
  * @return           Return the state of a2dp stream
@@ -534,96 +502,40 @@ void bt_interface_close_hid(void);
 void bt_interface_set_hid_device(U8 is_ios);
 
 /**
- * @brief            hid mouse move once
- * @param[in] dx     X direction offset
- * @param[in] dx     y direction offset
- *
- **/
-void bt_interface_hid_mouse_move(S16 dx, S16 dy);
-
-/**
  * @brief            Control the mobile phone to page up
  *
  **/
-void bt_interface_hid_mouse_drag_up(void);
+void bt_interface_phone_drag_up(void);
 
 /**
  * @brief            Control the mobile phone to page down
  *
  **/
-void bt_interface_hid_mouse_drag_down(void);
+void bt_interface_phone_drag_down(void);
 
 /**
  * @brief            Control mobile phone click once
  *
  **/
-void bt_interface_hid_mouse_once_left_click(void);
+void bt_interface_phone_once_click(void);
 
 /**
  * @brief            Control mobile phone click twice
  *
  **/
-void bt_interface_hid_mouse_double_left_click(void);
+void bt_interface_phone_double_click(void);
 
 /**
  * @brief            Control mobile phone take a picture
  *
  **/
-void bt_interface_hid_consumer_take_picture(void);
-
-/**
- * @brief            Control the phone to increase the volume
- *
- **/
-void bt_interface_hid_consumer_volume_up(void);
+void bt_interface_phone_take_picture(void);
 
 /**
  * @brief            Control the phone to lower the volume
  *
  **/
-void bt_interface_hid_consumer_volume_down(void);
-
-/**
- * @brief            Control the phone to change the play status
- *
- **/
-void bt_interface_hid_consumer_play_status_change(void);
-
-/**
- * @brief            Control the phone to switch to next track
- *
- **/
-void bt_interface_hid_consumer_next_track(void);
-
-/**
- * @brief            Control the phone to switch to previous track
- *
- **/
-void bt_interface_hid_consumer_prev_track(void);
-
-/**
- * @brief            Control the cursor to move right once
- *
- **/
-void bt_interface_controller_report_right_arrow(void);
-
-/**
- * @brief            Control the cursor to move left once
- *
- **/
-void bt_interface_controller_report_left_arrow(void);
-
-/**
- * @brief            Control the cursor to move up once
- *
- **/
-void bt_interface_controller_report_up_arrow(void);
-
-/**
- * @brief            Control the cursor to move down once
- *
- **/
-void bt_interface_controller_report_down_arrow(void);
+void bt_interface_phone_volume_down(void);
 
 /**
  * @brief            Add hid descriptor
@@ -638,7 +550,6 @@ void bt_interface_add_hid_descriptor(U8 *data, U8 len);
   * @{
   */
 
-#if defined(CFG_SPP_SRV) || defined(_SIFLI_DOXYGEN_)
 /**
  * @deprecated - please use bt_interface_spp_send_data_ext
  * @brief            Send data through spp
@@ -661,16 +572,6 @@ bt_err_t bt_interface_spp_send_data(U8 *data, U16 len, BTS2S_BD_ADDR *bd_addr, U
  *
  **/
 bt_err_t bt_interface_spp_send_data_ext(U8 *data, U16 len, bt_notify_device_mac_t *rmt_addr, U8 srv_chl);
-
-/**
- * @brief            spp through put test function
- * @param[in] rand_len    The length of random data
- * @param[in] rmt_addr    Device mac address(eg:char mac[6] = {11,22,33,44,55,66})
- * @param[in] srv_chl    The service channel of spp
- * @return           The results of send random data
- *
- **/
-bt_err_t bt_interface_spp_prepare_send_rand_data(U32 rand_len, bt_notify_device_mac_t *rmt_addr, U8 srv_chl);
 
 /**
  * @brief            Add spp uuid
@@ -739,29 +640,6 @@ void bt_interface_dump_all_spp_connection_info(void);
  * @param[in] file_name    The file name
  **/
 bt_err_t bt_interface_spp_srv_send_file(bt_notify_device_mac_t *rmt_addr, U8 srv_chl, char *file_name);
-
-#if defined(CFG_SPP_CLT) || defined(_SIFLI_DOXYGEN_)
-/**
- * @brief            Connect spp by uuid and bd address
- * @param[in] bd_addr    The pointer of bd address
- * @param[in] uuid   The pointer of spp uuid
- * @param[in] uuid_len    The length of spp uuid
- * @return           The results of connect spp
- *
- **/
-bt_err_t bt_interface_spp_client_conn_req(bt_notify_device_mac_t *rmt_addr, U8 *uuid, U8 uuid_len);
-
-/**
- * @brief            sdp inquiry spp by uuid and bd address
- * @param[in] bd_addr    The pointer of bd address
- * @param[in] uuid   The pointer of spp uuid
- * @param[in] uuid_len    The length of spp uuid
- * @return           The results of sdp inquiry spp
- *
- **/
-bt_err_t bt_interface_spp_client_sdp_search_req(bt_notify_device_mac_t *rmt_addr, U8 *uuid, U8 uuid_len);
-#endif
-#endif
 /// @}  BT_SPP_SRV
 
 #if defined(CFG_BR_GATT_SRV) || defined(_SIFLI_DOXYGEN_)
@@ -1039,7 +917,7 @@ bt_err_t bt_interface_set_wbs_status(U8 status);
 
 #endif
 
-#if defined(BT_FINSH_PAN) || defined(_SIFLI_DOXYGEN_)
+#ifdef BT_FINSH_PAN
 /** @defgroup BT_PAN_SRV  BT PAN profile interfaces
   * @{
   */
