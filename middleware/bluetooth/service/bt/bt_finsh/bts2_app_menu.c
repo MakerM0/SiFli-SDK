@@ -1563,7 +1563,7 @@ static void  bt_disply_menu_gen_8_7(void)
  *----------------------------------------------------------------------------*/
 static void bt_hdl_menu_gen_8_7(bts2_app_stru *bts2_app_data)
 {
-    bt_wr_link_policy(bts2_app_data);
+    bt_wr_link_policy(&bts2_app_data->last_conn_bd, 0x0001);
 }
 
 static void  bt_disply_menu_gen_8_8(void)
@@ -1573,7 +1573,7 @@ static void  bt_disply_menu_gen_8_8(void)
 
 static void bt_hdl_menu_gen_8_8(bts2_app_stru *bts2_app_data)
 {
-    bt_etner_sniff_mode(bts2_app_data);
+    bt_etner_sniff_mode(&bts2_app_data->last_conn_bd, 400,5);
 }
 
 static void  bt_disply_menu_gen_8_9(void)
@@ -1583,7 +1583,7 @@ static void  bt_disply_menu_gen_8_9(void)
 
 static void bt_hdl_menu_gen_8_9(bts2_app_stru *bts2_app_data)
 {
-    bt_exit_sniff_mode(bts2_app_data);
+    bt_exit_sniff_mode(&bts2_app_data->last_conn_bd);
 }
 
 
@@ -3929,10 +3929,10 @@ static void bt_hdl_menu_hid(bts2_app_stru *bts2_app_data)
         bt_hid_mouse_test9(bts2_app_data);
         break;
     case 'e':
-        bt_exit_sniff_mode(bts2_app_data);
+        bt_exit_sniff_mode(&bts2_app_data->last_conn_bd);
         break;
     case 'b':
-        bt_etner_sniff_mode(bts2_app_data);
+        bt_etner_sniff_mode(&bts2_app_data->last_conn_bd, 400, 5);
         break;
     default:
         break;

@@ -659,7 +659,7 @@ void bt_hdl_pan_msg(bts2_app_stru *bts2_app_data)
         msg = (BTS2S_PAN_DATA_IND *)bts2_app_data->recv_msg;
 
         if (ptr->mode == SNIFF_MODE)
-            bt_exit_sniff_mode(bts2_app_data);
+            bt_exit_sniff_mode(&bts2_app_data->last_conn_bd);
 
 #ifdef CFG_GNU
         tx_data(msg);

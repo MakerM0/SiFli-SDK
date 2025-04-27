@@ -370,10 +370,18 @@ void bt_interface_rd_local_bd_addr(void)
     gap_rd_local_bd_req(bts2_app_data->phdl);
 }
 
-void bt_interface_exit_sniff_mode(void)
+void bt_interface_exit_sniff_mode(unsigned char *mac)
 {
-    bts2_app_stru *bts2_app_data = bts2g_app_p;
-    bt_exit_sniff_mode(bts2_app_data);
+    BTS2S_BD_ADDR bd_addr;
+    bt_addr_convert_to_bts((bd_addr_t *)mac, &bd_addr);
+    bt_exit_sniff_mode(&bd_addr);
+}
+
+void bt_interface_wr_link_policy_setting(unsigned char *mac, uint16_t link_policy_mode)
+{
+    BTS2S_BD_ADDR bd_addr;
+    bt_addr_convert_to_bts((bd_addr_t *)mac, &bd_addr);
+    bt_wr_link_policy(&bd_addr,link_policy_mode);
 }
 
 void bt_interface_rd_local_rssi(unsigned char *mac)
