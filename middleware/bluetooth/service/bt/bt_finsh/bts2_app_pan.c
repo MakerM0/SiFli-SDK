@@ -438,7 +438,7 @@ void bt_lwip_pan_send(struct rt_bt_pan_instance *bt_instance, void *buff, int le
     if (ptr->pan_st == PAN_BUSY_ST)
     {
         if (ptr->mode == SNIFF_MODE)
-            bt_exit_sniff_mode(bt_instance->bts2_app_data);
+            bt_exit_sniff_mode(&ptr->bd_addr);
 
         BTS2S_PAN_DATA_REQ *msg;
         msg = (BTS2S_PAN_DATA_REQ *)bmalloc(sizeof(BTS2S_PAN_DATA_REQ));
