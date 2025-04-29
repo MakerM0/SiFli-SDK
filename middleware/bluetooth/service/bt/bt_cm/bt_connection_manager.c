@@ -435,12 +435,6 @@ static bt_cm_err_t bt_cm_profile_connect(uint32_t profile_bit, bt_cm_conned_dev_
                     RT_ASSERT(0);
                 avrcp_conn_req(bts2_task_get_app_task_id(), conn->info.bd_addr, rmt_role, role);
             }
-// #ifdef CFG_HID
-//     else if (profile_bit == BT_CM_HID)
-//     {
-//         hid_conn_req(bts2_task_get_app_task_id(), conn->info.bd_addr, HID_Host, HID_Device);
-//     }
-// #endif
             else
 #endif
 #ifdef CFG_PAN
@@ -451,6 +445,14 @@ static bt_cm_err_t bt_cm_profile_connect(uint32_t profile_bit, bt_cm_conned_dev_
                     err = bt_pan_conn_by_addr(&(conn->info.bd_addr));
 #endif
                 }
+
+#ifdef CFG_HID
+    else if (profile_bit == BT_CM_HID)
+    {
+        hid_conn_req(bts2_task_get_app_task_id(), conn->info.bd_addr, HID_Host, HID_Device);
+    }
+#endif
+
                 else
 #endif
 
@@ -1311,6 +1313,17 @@ int bt_cm_gap_event_handler(uint16_t event_id, uint8_t *msg)
         bt_interface_bt_event_notify(BT_NOTIFY_COMMON, BT_NOTIFY_COMMON_ENCRYPTION, addr, 6);
         break;
     }
+    case BTS2MU_GAP_KEYMISSING_IND:
+    {
+        BTS2S_GAP_KEYMISSING_IND *ind;
+
+        ind = (BTS2S_GAP_KEYMISSING_IND *)msg;
+        U8     addr[6];
+        bt_addr_convert(&ind->bd, addr);
+        bt_cm_delete_bonded_devs_and_linkkey(addr);
+        // bt_interface_bt_event_notify(BT_NOTIFY_COMMON, BT_NOTIFY_COMMON_ENCRYPTION, addr, 6);
+        break;
+    }
     default:
         break;
     }
@@ -1663,6 +1676,7 @@ bt_cm_err_t bt_cm_connect_req(BTS2S_BD_ADDR *bd_addr, bt_cm_conn_role_t role)
             {
                 err = BT_CM_ERR_INVALID_PARA;
                 bt_cm_conn_destory(env, conn);
+                gap_wr_scan_enb_req(bts2_task_get_app_task_id(), 1, 1);
                 break;
             }
 
@@ -1671,6 +1685,7 @@ bt_cm_err_t bt_cm_connect_req(BTS2S_BD_ADDR *bd_addr, bt_cm_conn_role_t role)
         }
         else
         {
+            gap_wr_scan_enb_req(bts2_task_get_app_task_id(), 1, 1);
             bt_cm_conn_destory(env, conn);
         }
         err = BT_CM_ERR_NO_ERR;
