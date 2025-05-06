@@ -249,6 +249,30 @@
       "version_regex": "\\)\\s+([0-9]+\\.[0-9]+\\.[0-9]+)",
       "versions": [
         {
+          "name": "8.3.1",
+          "status": "recommended",
+          "linux-amd64": {
+            "sha256": "31338c3b8bdb32d9082a857f6d65a57c033e7d6eba1662a30c7fb3e83ff46597",
+            "size": 123594584,
+            "url": "https://github.com/xpack-dev-tools/arm-none-eabi-gcc-xpack/releases/download/v8.3.1-1.4/xpack-arm-none-eabi-gcc-8.3.1-1.4-linux-x64.tar.gz"
+          },
+          "win64": {
+            "sha256": "2f415819d96a50eb8f75974718e57762d1476a9f9722f4661e43b034fffe1a27",
+            "size": 127816566,
+            "url": "https://github.com/xpack-dev-tools/arm-none-eabi-gcc-xpack/releases/download/v8.3.1-1.4/xpack-arm-none-eabi-gcc-8.3.1-1.4-win32-x64.zip"
+          },
+          "macos": {
+            "sha256": "f7bfc6d8e91730434e04fcf49e36c360da48247a5ac1371e876a6cc3124c064b",
+            "size": 117623647,
+            "url": "https://github.com/OpenSiFli/crosstool-ng/releases/download/8.3.1-20250506/arm-none-eabi-8.3.1-x86_64-apple-darwin.tar.gz"
+          },
+          "macos-arm64": {
+            "sha256": "f7bfc6d8e91730434e04fcf49e36c360da48247a5ac1371e876a6cc3124c064b",
+            "size": 117623647,
+            "url": "https://github.com/OpenSiFli/crosstool-ng/releases/download/8.3.1-20250506/arm-none-eabi-8.3.1-x86_64-apple-darwin.tar.gz"
+          }
+        },
+        {
           "linux-amd64": {
             "sha256": "b93f17586b0048c15211c7ace48916f6b83d20fdfa985a790186b13c81f9c9a5",
             "size": 152823552,
@@ -270,7 +294,7 @@
             "url": "https://github.com/OpenSiFli/crosstool-ng/releases/download/14.2.0-20250221/arm-none-eabi-14.2.0-aarch64-apple-darwin.tar.xz"
           },
           "name": "14.2.1",
-          "status": "recommended",
+          "status": "supported",
           "win32": {
             "sha256": "6facb152ce431ba9a4517e939ea46f057380f8f1e56b62e8712b3f3b87d994e1",
             "size": 305393359,
