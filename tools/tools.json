@@ -252,14 +252,14 @@
           "name": "8.3.1",
           "status": "recommended",
           "linux-amd64": {
-            "sha256": "31338c3b8bdb32d9082a857f6d65a57c033e7d6eba1662a30c7fb3e83ff46597",
-            "size": 123594584,
-            "url": "https://github.com/xpack-dev-tools/arm-none-eabi-gcc-xpack/releases/download/v8.3.1-1.4/xpack-arm-none-eabi-gcc-8.3.1-1.4-linux-x64.tar.gz"
+            "sha256": "257e0b97021ca0589efa32eba5336a57b79be7f8d7cd459abef320c4370e31ba",
+            "size": 121899469,
+            "url": "https://github.com/OpenSiFli/crosstool-ng/releases/download/8.3.1-20250506/arm-none-eabi-8.3.1-x86_64-linux-gnu.tar.gz"
           },
           "win64": {
-            "sha256": "2f415819d96a50eb8f75974718e57762d1476a9f9722f4661e43b034fffe1a27",
-            "size": 127816566,
-            "url": "https://github.com/xpack-dev-tools/arm-none-eabi-gcc-xpack/releases/download/v8.3.1-1.4/xpack-arm-none-eabi-gcc-8.3.1-1.4-win32-x64.zip"
+            "sha256": "272a329a035a4f0e4f52d609bc90785e7126dd035f3063cc2b49a6bf1dcad954",
+            "size": 129275753,
+            "url": "https://github.com/OpenSiFli/crosstool-ng/releases/download/8.3.1-20250506/arm-none-eabi-8.3.1-x86_64-w64-mingw32.zip"
           },
           "macos": {
             "sha256": "f7bfc6d8e91730434e04fcf49e36c360da48247a5ac1371e876a6cc3124c064b",
