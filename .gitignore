@@ -8,3 +8,4 @@
 /**/*.pyc
 .sconsign.dblite
 Kconfig.tmp
+.DS_Store
