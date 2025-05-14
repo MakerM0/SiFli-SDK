@@ -362,6 +362,12 @@ if BSP_USING_LCD
             select LCD_USING_CO5300_DUAL
             select BSP_LCDC_USING_QADSPI
             select LCD_USING_PWM_AS_BACKLIGHT
+
+        config LCD_USING_GC9107_128x128_SPI
+            bool "0.85 rect SPI LCD(128X128 GC9107)"
+            select LCD_USING_GC9107
+            select BSP_LCDC_USING_SPI_DCX_1DATA
+            select LCD_USING_PWM_AS_BACKLIGHT
   
     endchoice
 
@@ -404,6 +410,7 @@ if BSP_USING_LCD
         default 720 if LCD_USING_TFT_NV3052C
         default 390 if LCD_USING_TFT_CO5300
         default 780 if LCD_USING_TFT_CO5300_DUAL
+        default 128 if LCD_USING_GC9107_128x128_SPI
 
         
     config LCD_VER_RES_MAX
@@ -445,6 +452,7 @@ if BSP_USING_LCD
         default 720 if LCD_USING_TFT_NV3052C
         default 450 if LCD_USING_TFT_CO5300
         default 450 if LCD_USING_TFT_CO5300_DUAL
+        default 128 if LCD_USING_GC9107_128x128_SPI
 
     config LCD_DPI
         int
@@ -485,6 +493,7 @@ if BSP_USING_LCD
         default 315 if LCD_USING_TFT_NV3052C
         default 300 if LCD_USING_TFT_CO5300
         default 300 if LCD_USING_TFT_CO5300_DUAL
+        default 213 if LCD_USING_GC9107_128x128_SPI
 
     config BSP_USING_LCD_FRAMEBUFFER
         bool
