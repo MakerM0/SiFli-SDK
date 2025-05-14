@@ -556,8 +556,18 @@ static void LCD_SetColorMode(LCDC_HandleTypeDef *hlcdc, uint16_t color_mode)
 
 static void LCD_SetBrightness(LCDC_HandleTypeDef *hlcdc, uint8_t br)
 {
-    // uint8_t bright = (uint8_t)((uint16_t)UINT8_MAX * br / 100);
-    // LCD_WriteReg(hlcdc, REG_WBRIGHT, &br, 1);
+    rt_device_t device = rt_device_find("lcdlight");
+    if (device)
+    {
+        rt_err_t err = rt_device_open(device, RT_DEVICE_OFLAG_RDWR);
+        uint8_t val = br;
+        rt_device_write(device, 0, &val, 1);
+        rt_device_close(device);
+    }
+    else
+    {
+        LOG_E("Can't find device lcdlight!");
+    }
 }
 
 
