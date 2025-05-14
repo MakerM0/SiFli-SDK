@@ -33,6 +33,7 @@ __WEAK void BSP_PowerUpCustom(bool is_deep_sleep)
 
     // GS_3V3
     BSP_GPIO_Set(30, 1, 1);
+    HAL_Delay_us(500); // must delay 500us to make sure power on finish
 
     // Configure Charger
     const uint8_t charger_addr = 0x49;
