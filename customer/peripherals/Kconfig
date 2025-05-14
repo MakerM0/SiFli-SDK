@@ -225,6 +225,10 @@ config LCD_USING_JD9365DA
 config LCD_USING_NV3052C
     bool
     default n
+
+config LCD_USING_GC9107
+    bool
+    default n
 	
 config BSP_LCDC_USING_SPI_NODCX_1DATA
     def_bool n 
