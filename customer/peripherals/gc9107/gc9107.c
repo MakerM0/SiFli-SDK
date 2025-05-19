@@ -50,16 +50,7 @@
 #include "board.h"
 #include "drv_io.h"
 #include "drv_lcd.h"
-
 #include "log.h"
-
-
-
-
-
-
-
-
 
 #ifdef ROW_OFFSET_PLUS
     #define ROW_OFFSET  (ROW_OFFSET_PLUS)
@@ -67,14 +58,10 @@
     #define ROW_OFFSET  (0)
 #endif
 
-
 /**
   * @brief gc9107 chip IDs
   */
 #define THE_LCD_ID                  0x009107
-
-
-
 
 /**
   * @brief  gc9107 Registers
@@ -90,39 +77,14 @@
 #define REG_READ_RAM           0x2E
 #define REG_CASET              0x2A
 #define REG_RASET              0x2B
-
-
 #define REG_TEARING_EFFECT     0x35
-
 #define REG_IDLE_MODE_OFF      0x38
 #define REG_IDLE_MODE_ON       0x39
 #define REG_COLOR_MODE         0x3A
-#define REG_WBRIGHT            0x51
-
-
-
-
-
-
 #define REG_VDV_VRH_EN         0xC2
 #define REG_VDV_SET            0xC4
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 //#define DEBUG
-
 #ifdef DEBUG
     #define DEBUG_PRINTF(...)   LOG_I(__VA_ARGS__)
 #else
@@ -131,13 +93,6 @@
 
 static void LCD_WriteReg(LCDC_HandleTypeDef *hlcdc, uint16_t LCD_Reg, uint8_t *Parameters, uint32_t NbParameters);
 static uint32_t LCD_ReadData(LCDC_HandleTypeDef *hlcdc, uint16_t RegValue, uint8_t ReadSize);
-
-
-
-
-
-
-
 
 static LCDC_InitTypeDef lcdc_int_cfg =
 {
@@ -164,13 +119,6 @@ static LCDC_InitTypeDef lcdc_int_cfg =
 
 };
 
-
-
-
-
-
-
-
 /**
   * @brief  spi read/write mode
   * @param  enable: false - write spi mode |  true - read spi mode
@@ -191,6 +139,7 @@ static void LCD_ReadMode(LCDC_HandleTypeDef *hlcdc, bool enable)
 
     }
 }
+
 static void LCD_Init(LCDC_HandleTypeDef *hlcdc)
 {
     uint8_t   parameter[14];
@@ -208,9 +157,7 @@ static void LCD_Init(LCDC_HandleTypeDef *hlcdc)
     /* Sleep Out Command */
     LCD_WriteReg(hlcdc, REG_SLEEP_OUT, (uint8_t *)NULL, 0);
     /* Wait for 120ms */
-    LCD_DRIVER_DELAY_MS(120);
-
-    
+    LCD_DRIVER_DELAY_MS(120);    
 
     LCD_WriteReg(hlcdc, 0xFE, (uint8_t *)NULL, 0);
     LCD_WriteReg(hlcdc, 0xEF, (uint8_t *)NULL, 0); 
@@ -267,12 +214,9 @@ static void LCD_Init(LCDC_HandleTypeDef *hlcdc)
     LCD_WriteReg(hlcdc, 0xC6, parameter, 1);
     
     parameter[0] = 0x15;
-    LCD_WriteReg(hlcdc, 0xC7, parameter, 1);
-	
+    LCD_WriteReg(hlcdc, 0xC7, parameter, 1);     
 
-     
-
-    /*--------------- ST7789V Gamma setting ------------------------------------*/
+    /*--------------- GC9107 Gamma setting ------------------------------------*/
     /* Positive Voltage Gamma Control */
     parameter[0] = 0x1d;
     parameter[1] = 0x38;
@@ -316,10 +260,7 @@ static void LCD_Init(LCDC_HandleTypeDef *hlcdc)
     parameter[0] = 0xff;
     parameter[1] = 0xff;
     LCD_WriteReg(hlcdc, 0xba, parameter, 2);
-
- 
-    // LCD_WriteReg(hlcdc, 0x21, (uint8_t *)NULL, 0);
-
+	
     parameter[0] = 0x00; 
     LCD_WriteReg(hlcdc, 0X36, parameter, 1);
 
@@ -331,10 +272,7 @@ static void LCD_Init(LCDC_HandleTypeDef *hlcdc)
     //st7789v3_SpiWriteCmd(0x2c);
     LCD_WriteReg(hlcdc, 0x2c, (uint8_t *)NULL, 0);
 
-
     rt_kprintf("LCD_Init over!!\n");
-
-
 }
 
 /**
@@ -343,15 +281,7 @@ static void LCD_Init(LCDC_HandleTypeDef *hlcdc)
   * @retval LCD Register Value.
   */
 static uint32_t LCD_ReadID(LCDC_HandleTypeDef *hlcdc)
-{
-    // uint32_t data;
-
-    // data = LCD_ReadData(hlcdc, REG_LCD_ID, 4);
-    // rt_kprintf(" gc9107_ReadID:0x%x\n", data);
-    // //gc9107_ReadID:0x40c0d9ff
-    // data = ((data << 1) >> 8) & 0xFFFFFF;
-    // rt_kprintf(" gc9107_ReadID1:0x%x\n", data); //gc9107_ReadID1:0x9107
-
+{  
     return 0x009107;
 }
 
@@ -426,8 +356,6 @@ static void LCD_WriteMultiplePixels(LCDC_HandleTypeDef *hlcdc, const uint8_t *RG
     HAL_LCDC_SendLayerData2Reg_IT(hlcdc, REG_WRITE_RAM, 1);
 }
 
-
-
 /**
   * @brief  Writes  to the selected LCD register.
   * @param  LCD_Reg: address of the selected register.
@@ -437,7 +365,6 @@ static void LCD_WriteReg(LCDC_HandleTypeDef *hlcdc, uint16_t LCD_Reg, uint8_t *P
 {
     HAL_LCDC_WriteU8Reg(hlcdc, LCD_Reg, Parameters, NbParameters);
 }
-
 
 /**
   * @brief  Reads the selected LCD Register.
@@ -457,8 +384,6 @@ static uint32_t LCD_ReadData(LCDC_HandleTypeDef *hlcdc, uint16_t RegValue, uint8
 
     return rd_data;
 }
-
-
 
 static uint32_t LCD_ReadPixel(LCDC_HandleTypeDef *hlcdc, uint16_t Xpos, uint16_t Ypos)
 {
@@ -514,20 +439,15 @@ static uint32_t LCD_ReadPixel(LCDC_HandleTypeDef *hlcdc, uint16_t Xpos, uint16_t
         RT_ASSERT(0);
         break;
     }
-
     //rt_kprintf("gc9107_ReadPixel %x -> %x\n",c, ret_v);
-
-
     LCD_WriteReg(hlcdc, REG_COLOR_MODE, parameter, 1);
 
     return ret_v;
 }
 
-
 static void LCD_SetColorMode(LCDC_HandleTypeDef *hlcdc, uint16_t color_mode)
 {
     uint8_t   parameter[2];
-
     /*
 
     Control interface color format
@@ -569,9 +489,6 @@ static void LCD_SetBrightness(LCDC_HandleTypeDef *hlcdc, uint8_t br)
         LOG_E("Can't find device lcdlight!");
     }
 }
-
-
-
 
 static const LCD_DrvOpsDef gc9107_drv =
 {
